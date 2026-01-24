@@ -125,8 +125,39 @@ const failureUrl = 'https://auth.marketingtool.pro/oauth/failure';
 // NO scopes parameter - let Appwrite use defaults
 const oauthUrl = `${APPWRITE_ENDPOINT}/account/sessions/oauth2/google?project=${APPWRITE_PROJECT_ID}&success=${encodeURIComponent(successUrl)}&failure=${encodeURIComponent(failureUrl)}`;
 
-// WebBrowser returns to auth.marketingtool.pro
-const result = await WebBrowser.openAuthSessionAsync(oauthUrl, 'https://auth.marketingtool.pro');
+// Nginx redirects auth.marketingtool.pro/oauth/success → marketingtool://oauth/success
+const result = await WebBrowser.openAuthSessionAsync(oauthUrl, 'marketingtool://');
+```
+
+## OAUTH FLOW (COMPLETE)
+
+```
+1. App opens: https://api.marketingtool.pro/v1/account/sessions/oauth2/google?...
+   success=https://auth.marketingtool.pro/oauth/success
+
+2. User authenticates with Google
+
+3. Appwrite redirects to: https://auth.marketingtool.pro/oauth/success?userId=xxx&secret=xxx
+
+4. Nginx (auth.marketingtool.pro) redirects 302 to: marketingtool://oauth/success?userId=xxx&secret=xxx
+
+5. WebBrowser catches marketingtool:// and returns to app
+
+6. App parses userId & secret, creates Appwrite session
+```
+
+## NGINX CONFIG (auth.marketingtool.pro)
+
+**Server:** `/etc/nginx/sites-available/auth.marketingtool.pro`
+
+```nginx
+location /oauth/success {
+    return 302 marketingtool://oauth/success$is_args$args;
+}
+
+location /oauth/failure {
+    return 302 marketingtool://oauth/failure$is_args$args;
+}
 ```
 
 ---
@@ -172,11 +203,14 @@ eas build --platform ios --profile production
 
 ## CURRENT STATUS (January 24, 2026)
 
-- App restarted with `npx expo start --ios --clear`
-- OAuth URLs: `https://auth.marketingtool.pro/oauth/success|failure`
+✅ **OAUTH COMPLETE:**
+- DNS: `auth` A record → `31.220.107.19`
+- Nginx: Redirects `/oauth/success` → `marketingtool://oauth/success`
+- Appwrite: Platform `auth.marketingtool.pro` registered
+- Code: WebBrowser listens for `marketingtool://` deep link
 - NO scopes parameter in OAuth URL
-- Platform `auth.marketingtool.pro` added to Appwrite (ID: 18)
-- Ready for testing
+
+**Test:** Tap Google button on simulator
 
 ---
 
