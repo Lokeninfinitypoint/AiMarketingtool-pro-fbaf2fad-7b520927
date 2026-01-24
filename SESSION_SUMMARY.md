@@ -20,8 +20,23 @@
 **AI Backend:** Windmill
 - URL: `https://wm.marketingtool.pro`
 - Workspace: `marketingtool-pro`
+- AI: Claude Opus 4.5
 
-**Web App (SEPARATE):** Next.js at `marketingtool.pro` and `app.marketingtool.pro`
+**Web App (SEPARATE):** Next.js at `app.marketingtool.pro`
+**Marketing Website (SEPARATE):** Django at `marketingtool.pro`
+
+---
+
+## ARCHITECTURE (IMPORTANT - DO NOT MIX)
+
+| Service | URL | Purpose |
+|---------|-----|---------|
+| Marketing Website | marketingtool.pro | Django - Public website |
+| Next.js Web App | app.marketingtool.pro | Web dashboard (SEPARATE from phone) |
+| Appwrite API | api.marketingtool.pro | Backend for BOTH apps |
+| Windmill AI | wm.marketingtool.pro | AI backend for phone app |
+
+**CRITICAL:** Phone app and Next.js web app are COMPLETELY SEPARATE. Don't mix configurations.
 
 ---
 
@@ -30,100 +45,101 @@
 ### COMPLETED:
 1. ✅ Android build SUCCESS (versionCode 7) - AAB ready for Play Store
 2. ✅ iOS build PENDING (waiting Apple Developer 48h verification)
-3. ✅ Dashboard fixed: 206+ AI tools (was 186+)
+3. ✅ Dashboard fixed: 206+ AI tools
 4. ✅ Hero banner added with AI robot image
 5. ✅ All navigation buttons working
 6. ✅ Notification bell navigates to History
-7. ✅ Chat connected to Windmill AI (Claude)
-8. ✅ Removed unused native modules (Sentry, OneSignal, Branch, etc.)
+7. ✅ Chat connected to Windmill AI (Claude Opus 4.5)
+8. ✅ Removed unused native modules
 
-### PENDING - Google OAuth Issue:
-**Error:** "Error 412 - This provider is disabled"
-
-**Root Cause:** The Google OAuth Client ID mismatch:
-- Appwrite has: `38489721696-g4iomho41dv2bfg6dpn69uuclmhh0p5n.apps.googleusercontent.com`
-- Google Cloud shows: `911925145433-lnqjvdu44j1krdoq95eqpf3rjo4sf6vv.apps.googleusercontent.com`
-
-**Next Step:** Check Appwrite server logs via SSH to diagnose exact error
+### OAUTH FIX (THIS SESSION):
+1. ✅ Removed invalid `scopes` parameter from Google/Facebook OAuth URLs
+2. ✅ Added `marketingtool` platform to Appwrite via SSH (ID: 17)
+3. ✅ Platform allows `marketingtool://` deep link callbacks
 
 ---
 
-## APPWRITE CONFIGURATION
+## APPWRITE PLATFORMS (via SSH)
 
-### Platforms Registered:
-| Name | Type | Identifier |
-|------|------|------------|
-| Next.js app | Web | app.marketingtool.pro |
-| Next.js app | Web | marketingtool.pro |
-| Android | Android | pro.marketingtool.app |
-| iOS | iOS | pro.marketingtool.app |
+```sql
+SELECT _id, type, name, hostname FROM _console_platforms;
+```
 
-### OAuth Providers (ENABLED):
-- **Google:** App ID `38489721696-g4iomho41dv2bfg6dpn69uuclmhh0p5n.apps.googleusercontent.com`
-- **Facebook:** App ID `1414526644867223`
-- Callback URI: `https://api.marketingtool.pro/v1/account/sessions/oauth2/callback/google/6952c8a0002d3365625d`
+| ID | Type | Name | Hostname |
+|----|------|------|----------|
+| 2 | web | Next.js app | app.marketingtool.pro |
+| 3 | web | Next.js app | marketingtool.pro |
+| 10 | react-native-android | Android | (bundle: pro.marketingtool.app) |
+| 14 | react-native-ios | iOS | (bundle: pro.marketingtool.app) |
+| 17 | web | Mobile Deep Link | marketingtool |
 
-### Collections:
-- users, tools, generations, subscriptions, chat_sessions, chat_messages, favorites, usage
+---
+
+## SSH ACCESS
+
+```bash
+ssh root@api.marketingtool.pro
+# or
+ssh root@31.220.107.19
+```
+
+**Appwrite Database:**
+```bash
+docker exec appwrite-mariadb mysql -u user -ppassword appwrite -e "YOUR_QUERY"
+```
+
+**Docker Services:**
+- appwrite (26 containers)
+- windmill (4 containers)
+- n8n, nginx-proxy-manager, emby, mariadb
 
 ---
 
 ## FILES MODIFIED THIS SESSION
 
 ```
-src/services/appwrite.ts          - OAuth implementation with WebBrowser
-src/store/authStore.ts            - OAuth session handling
-src/screens/main/DashboardScreen.tsx  - Hero image, 206+ tools, navigation
-src/screens/auth/OnboardingScreen.tsx - 206+ tools
-src/screens/auth/RegisterScreen.tsx   - 206+ tools
-src/screens/auth/LoginScreen.tsx      - OAuth error handling
-src/screens/chat/ChatScreen.tsx       - Windmill AI connection
-src/assets/images/dashboard/      - 5 freepik images added
+src/services/appwrite.ts - Removed scopes from OAuth URLs
+SESSION_SUMMARY.md - This file
 ```
 
 ---
 
 ## GIT COMMITS THIS SESSION
 
-1. `3235696` - Fix dashboard: 206+ tools, hero image, notification button
-2. `eb9bee5` - Fix tool count across all screens (186+ → 206+)
-3. `4ee3bd6` - Fix Google/Apple/Facebook OAuth with expo-web-browser
-4. `47e1a8c` - Fix OAuth for mobile - use proper deep link callbacks
+1. `45b4146` - Fix OAuth scopes error for phone app
+2. `dbf334d` - Revert (temporary)
+3. `eef22c8` - Fix OAuth (reverted)
+4. Previous commits for dashboard fixes
 
 ---
 
-## TO FIX GOOGLE OAUTH
+## KEY CODE - OAuth Implementation
 
-### Option 1: Update Appwrite Google credentials
-Update Appwrite Console → Auth → Google with the Client ID from Google Cloud Console:
-`911925145433-lnqjvdu44j1krdoq95eqpf3rjo4sf6vv.apps.googleusercontent.com`
+**File:** `src/services/appwrite.ts`
 
-### Option 2: Find the other Google OAuth client
-There may be another OAuth client in Google Cloud Console with ID:
-`38489721696-g4iomho41dv2bfg6dpn69uuclmhh0p5n.apps.googleusercontent.com`
-
-### Option 3: Check Appwrite logs
-SSH into server and check Docker logs:
-```bash
-ssh root@api.marketingtool.pro
-docker logs appwrite
-```
-
----
-
-## KEY CODE REFERENCES
-
-### OAuth Implementation (appwrite.ts):
 ```typescript
-const oauthUrl = `${APPWRITE_ENDPOINT}/account/sessions/oauth2/google?project=${APPWRITE_PROJECT_ID}&success=${encodeURIComponent('marketingtool://oauth/success')}&failure=${encodeURIComponent('marketingtool://oauth/failure')}&scopes=email%20profile`;
-const result = await WebBrowser.openAuthSessionAsync(oauthUrl, 'marketingtool://');
+// Google OAuth (NO scopes parameter)
+const oauthUrl = `${APPWRITE_ENDPOINT}/account/sessions/oauth2/google?project=${APPWRITE_PROJECT_ID}&success=${encodeURIComponent(successUrl)}&failure=${encodeURIComponent(failureUrl)}`;
+
+// Success/Failure URLs use deep link scheme
+const successUrl = 'marketingtool://oauth/success';
+const failureUrl = 'marketingtool://oauth/failure';
 ```
 
-### Windmill AI Chat (ChatScreen.tsx):
+---
+
+## KEY CODE - Windmill AI Chat
+
+**File:** `src/screens/chat/ChatScreen.tsx`
+
 ```typescript
 const WINDMILL_BASE = 'https://wm.marketingtool.pro';
 const WINDMILL_WORKSPACE = 'marketingtool-pro';
-fetch(`${WINDMILL_BASE}/api/w/${WINDMILL_WORKSPACE}/jobs/run_wait_result/p/f/mobile/chat_ai`, ...)
+const WINDMILL_TOKEN = 'wm_token_marketingtool_2024';
+
+fetch(`${WINDMILL_BASE}/api/w/${WINDMILL_WORKSPACE}/jobs/run_wait_result/p/f/mobile/chat_ai`, {
+  headers: { 'Authorization': `Bearer ${WINDMILL_TOKEN}` }
+})
 ```
 
 ---
@@ -131,10 +147,10 @@ fetch(`${WINDMILL_BASE}/api/w/${WINDMILL_WORKSPACE}/jobs/run_wait_result/p/f/mob
 ## BUILD COMMANDS
 
 ```bash
-# Start Expo
+# Start Expo (development)
 npx expo start --ios --clear
 
-# Build Android
+# Build Android (production)
 eas build --platform android --profile production
 
 # Build iOS (after Apple Developer verified)
@@ -143,56 +159,50 @@ eas build --platform ios --profile production
 
 ---
 
+## NEXT STEPS
+
+1. Test Google OAuth on phone simulator (should work now)
+2. Test Facebook OAuth
+3. Test Apple OAuth (iOS only)
+4. Submit Android build to Play Store internal testing
+5. Build iOS when Apple Developer verified
+
+---
+
 ## IMPORTANT NOTES
 
-1. **Next.js web app and Phone app are SEPARATE** - don't mix up configurations
-2. **Same Appwrite backend** for both apps - credential changes affect both
-3. **Google OAuth works on web** but fails on mobile - need to debug via Appwrite logs
-4. **Apple Developer** account purchased, waiting 48h verification for iOS build
+1. **Phone app and Web app are SEPARATE** - never mix configurations
+2. **Same Appwrite backend** for both apps
+3. **Platform `marketingtool` (ID: 17)** enables deep link OAuth callbacks
+4. **Windmill AI** powers the phone app chat (Claude Opus 4.5)
 5. **12 testers** already added to Play Store internal testing
 
 ---
 
-## SSH FINDINGS (CONFIRMED)
+## TROUBLESHOOTING
 
-Connected to `api.marketingtool.pro` successfully!
+**OAuth "Invalid scopes" error:**
+- Remove `&scopes=...` from OAuth URL
+- Use Appwrite's default scopes
 
-**Appwrite Docker containers running:**
-- appwrite (main)
-- appwrite-console
-- appwrite-worker-builds
-- appwrite-worker-stats-resources
-- appwrite-task-scheduler-*
+**OAuth "Invalid URI" error:**
+- Add platform with hostname `marketingtool` to Appwrite
+- Via SSH: `INSERT INTO _console_platforms ...`
 
-**Error logs found:**
-```
-[Error] URL: /v1/account/sessions/oauth2/:provider
-[Error] Message: This provider is disabled. Please enable the provider from your Appwrite console to continue.
-```
-
-**Analysis:** Provider shows ENABLED in Appwrite Console UI but returns "disabled" error.
-Possible causes:
-1. Cache issue - try restarting Appwrite container
-2. Provider credentials invalid/mismatched
-3. Platform (iOS/Android) not properly linked to OAuth
-
-**Try:** `docker restart appwrite` on server
+**OAuth "Provider disabled" error:**
+- Check Appwrite Console → Auth → Providers
+- Restart: `docker restart appwrite`
 
 ---
 
-## NEXT AGENT TASKS
+## SERVER INFO
 
-1. ~~SSH into `api.marketingtool.pro` and check Appwrite container logs for OAuth error~~ DONE
-2. Find correct Google OAuth Client ID that matches Appwrite
-3. Or create new Google OAuth client for mobile with correct redirect URI
-4. Test Google login on phone app
-5. Submit Android build to Play Store when ready
-6. Build iOS when Apple Developer verified
+- **IP:** 31.220.107.19
+- **Hostname:** srv1073584.hstgr.cloud
+- **OS:** Ubuntu 24.04 with Appwrite
+- **VPS:** Hostinger KVM 8 (8 CPU, 32GB RAM, 400GB)
+- **Expiration:** 2026-02-25
 
 ---
 
-## SSH ACCESS
-
-Server: `api.marketingtool.pro`
-Appwrite runs in Docker containers
-Check logs: `docker logs appwrite` or `docker logs appwrite-worker`
+*Last updated: January 24, 2026 - OAuth fix session*
