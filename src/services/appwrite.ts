@@ -94,7 +94,7 @@ export const authService = {
       const failureUrl = 'marketingtool://oauth/failure';
 
       // Open browser for OAuth using WebBrowser
-      const oauthUrl = `${APPWRITE_ENDPOINT}/account/sessions/oauth2/google?project=${APPWRITE_PROJECT_ID}&success=${encodeURIComponent(successUrl)}&failure=${encodeURIComponent(failureUrl)}&scopes=email%20profile`;
+      const oauthUrl = `${APPWRITE_ENDPOINT}/account/sessions/oauth2/google?project=${APPWRITE_PROJECT_ID}&success=${encodeURIComponent(successUrl)}&failure=${encodeURIComponent(failureUrl)}`;
 
       console.log('[OAuth] Opening URL:', oauthUrl);
 
@@ -202,7 +202,7 @@ export const authService = {
       const successUrl = 'marketingtool://oauth/success';
       const failureUrl = 'marketingtool://oauth/failure';
 
-      const oauthUrl = `${APPWRITE_ENDPOINT}/account/sessions/oauth2/facebook?project=${APPWRITE_PROJECT_ID}&success=${encodeURIComponent(successUrl)}&failure=${encodeURIComponent(failureUrl)}&scopes=email%20public_profile`;
+      const oauthUrl = `${APPWRITE_ENDPOINT}/account/sessions/oauth2/facebook?project=${APPWRITE_PROJECT_ID}&success=${encodeURIComponent(successUrl)}&failure=${encodeURIComponent(failureUrl)}`;
 
       const result = await WebBrowser.openAuthSessionAsync(oauthUrl, 'marketingtool://');
 
