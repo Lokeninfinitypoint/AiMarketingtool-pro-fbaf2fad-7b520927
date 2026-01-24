@@ -273,7 +273,7 @@ const ChatScreen = () => {
   const callWindmillChat = async (userMessage: string, history: Message[]): Promise<string> => {
     const WINDMILL_BASE = 'https://wm.marketingtool.pro';
     const WINDMILL_WORKSPACE = 'marketingtool-pro';
-    const WINDMILL_TOKEN = 'wm_token_marketingtool_2024';
+    const WINDMILL_TOKEN = 'FeMBZxek4_UvIVq9PE0m4Y-cPynHTWtLZmiZshBO';
 
     // Build conversation history for context
     const conversationHistory = history.slice(-10).map(m => ({
