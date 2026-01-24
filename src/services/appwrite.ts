@@ -88,17 +88,15 @@ export const authService = {
     try {
       console.log('[OAuth] Starting Google OAuth via Appwrite SDK...');
 
-      // Use Appwrite's built-in OAuth2 session creation
-      // This opens a browser and handles the OAuth flow
-      const successUrl = 'marketingtool://oauth/success';
-      const failureUrl = 'marketingtool://oauth/failure';
+      // Use auth.marketingtool.pro for phone app OAuth (separate from web app)
+      const successUrl = 'https://auth.marketingtool.pro/oauth/success';
+      const failureUrl = 'https://auth.marketingtool.pro/oauth/failure';
 
-      // Open browser for OAuth using WebBrowser
       const oauthUrl = `${APPWRITE_ENDPOINT}/account/sessions/oauth2/google?project=${APPWRITE_PROJECT_ID}&success=${encodeURIComponent(successUrl)}&failure=${encodeURIComponent(failureUrl)}`;
 
       console.log('[OAuth] Opening URL:', oauthUrl);
 
-      const result = await WebBrowser.openAuthSessionAsync(oauthUrl, 'marketingtool://');
+      const result = await WebBrowser.openAuthSessionAsync(oauthUrl, 'https://auth.marketingtool.pro');
 
       console.log('[OAuth] Browser result type:', result.type);
 
@@ -153,12 +151,12 @@ export const authService = {
     try {
       console.log('[OAuth] Starting Apple OAuth...');
 
-      const successUrl = 'marketingtool://oauth/success';
-      const failureUrl = 'marketingtool://oauth/failure';
+      const successUrl = 'https://auth.marketingtool.pro/oauth/success';
+      const failureUrl = 'https://auth.marketingtool.pro/oauth/failure';
 
       const oauthUrl = `${APPWRITE_ENDPOINT}/account/sessions/oauth2/apple?project=${APPWRITE_PROJECT_ID}&success=${encodeURIComponent(successUrl)}&failure=${encodeURIComponent(failureUrl)}`;
 
-      const result = await WebBrowser.openAuthSessionAsync(oauthUrl, 'marketingtool://');
+      const result = await WebBrowser.openAuthSessionAsync(oauthUrl, 'https://auth.marketingtool.pro');
 
       if (result.type === 'success' && result.url) {
         if (result.url.includes('oauth/success') || result.url.includes('secret=')) {
@@ -199,12 +197,12 @@ export const authService = {
     try {
       console.log('[OAuth] Starting Facebook OAuth...');
 
-      const successUrl = 'marketingtool://oauth/success';
-      const failureUrl = 'marketingtool://oauth/failure';
+      const successUrl = 'https://auth.marketingtool.pro/oauth/success';
+      const failureUrl = 'https://auth.marketingtool.pro/oauth/failure';
 
       const oauthUrl = `${APPWRITE_ENDPOINT}/account/sessions/oauth2/facebook?project=${APPWRITE_PROJECT_ID}&success=${encodeURIComponent(successUrl)}&failure=${encodeURIComponent(failureUrl)}`;
 
-      const result = await WebBrowser.openAuthSessionAsync(oauthUrl, 'marketingtool://');
+      const result = await WebBrowser.openAuthSessionAsync(oauthUrl, 'https://auth.marketingtool.pro');
 
       if (result.type === 'success' && result.url) {
         if (result.url.includes('oauth/success') || result.url.includes('secret=')) {

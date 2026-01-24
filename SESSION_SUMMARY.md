@@ -113,17 +113,20 @@ SESSION_SUMMARY.md - This file
 
 ---
 
-## KEY CODE - OAuth Implementation
+## KEY CODE - OAuth Implementation (FINAL)
 
 **File:** `src/services/appwrite.ts`
 
 ```typescript
-// Google OAuth (NO scopes parameter)
+// Google OAuth - Uses auth.marketingtool.pro (separate from web app)
+const successUrl = 'https://auth.marketingtool.pro/oauth/success';
+const failureUrl = 'https://auth.marketingtool.pro/oauth/failure';
+
+// NO scopes parameter - let Appwrite use defaults
 const oauthUrl = `${APPWRITE_ENDPOINT}/account/sessions/oauth2/google?project=${APPWRITE_PROJECT_ID}&success=${encodeURIComponent(successUrl)}&failure=${encodeURIComponent(failureUrl)}`;
 
-// Success/Failure URLs use deep link scheme
-const successUrl = 'marketingtool://oauth/success';
-const failureUrl = 'marketingtool://oauth/failure';
+// WebBrowser returns to auth.marketingtool.pro
+const result = await WebBrowser.openAuthSessionAsync(oauthUrl, 'https://auth.marketingtool.pro');
 ```
 
 ---
@@ -161,11 +164,19 @@ eas build --platform ios --profile production
 
 ## NEXT STEPS
 
-1. Test Google OAuth on phone simulator (should work now)
-2. Test Facebook OAuth
-3. Test Apple OAuth (iOS only)
-4. Submit Android build to Play Store internal testing
-5. Build iOS when Apple Developer verified
+1. **Test Google OAuth** - Tap Google button on simulator, verify no errors
+2. **Test Facebook OAuth** - Same flow
+3. **Test Apple OAuth** - iOS only
+4. **Submit Android build** to Play Store internal testing (AAB ready)
+5. **Build iOS** when Apple Developer verified
+
+## CURRENT STATUS (January 24, 2026)
+
+- App restarted with `npx expo start --ios --clear`
+- OAuth URLs: `https://auth.marketingtool.pro/oauth/success|failure`
+- NO scopes parameter in OAuth URL
+- Platform `auth.marketingtool.pro` added to Appwrite (ID: 18)
+- Ready for testing
 
 ---
 
