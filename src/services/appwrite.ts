@@ -1,5 +1,11 @@
 import { Client, Account, Databases, Storage, Functions, ID, Query, Models, OAuthProvider } from 'react-native-appwrite';
 import * as SecureStore from 'expo-secure-store';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
+import { makeRedirectUri } from 'expo-auth-session';
+
+// Ensure web browser closes properly after OAuth
+WebBrowser.maybeCompleteAuthSession();
 
 // Appwrite Configuration
 const APPWRITE_ENDPOINT = 'https://api.marketingtool.pro/v1';
@@ -77,41 +83,158 @@ export const authService = {
     }
   },
 
-  // Login with Google
-  async loginWithGoogle(): Promise<void> {
+  // Login with Google using WebBrowser
+  async loginWithGoogle(): Promise<Models.Session | null> {
     try {
-      await account.createOAuth2Session(
-        OAuthProvider.Google,
-        'marketingtool://oauth',
-        'marketingtool://oauth'
-      );
+      // Create redirect URI for OAuth - works for both Expo Go and standalone
+      const redirectUri = makeRedirectUri({
+        scheme: 'marketingtool',
+        path: 'oauth',
+        preferLocalhost: false,
+      });
+
+      console.log('[OAuth] Google redirect URI:', redirectUri);
+
+      // Construct the OAuth URL for Appwrite
+      const oauthUrl = `${APPWRITE_ENDPOINT}/account/sessions/oauth2/google?project=${APPWRITE_PROJECT_ID}&success=${encodeURIComponent(redirectUri)}&failure=${encodeURIComponent(redirectUri)}`;
+
+      console.log('[OAuth] Opening Google auth URL');
+
+      // Open browser for OAuth
+      const result = await WebBrowser.openAuthSessionAsync(oauthUrl, redirectUri);
+
+      console.log('[OAuth] Browser result:', result.type);
+
+      if (result.type === 'success' && result.url) {
+        console.log('[OAuth] Success URL:', result.url);
+
+        // Parse URL to get parameters
+        const url = new URL(result.url);
+        const secret = url.searchParams.get('secret');
+        const userId = url.searchParams.get('userId');
+
+        console.log('[OAuth] Parsed - userId:', userId, 'secret:', secret ? 'present' : 'missing');
+
+        if (secret && userId) {
+          // Create session with the returned credentials
+          const session = await account.createSession(userId, secret);
+          await saveSession(session.$id);
+          console.log('[OAuth] Session created successfully');
+          return session;
+        }
+
+        // Try to get current session if already authenticated via cookie
+        console.log('[OAuth] Checking for existing session...');
+        try {
+          const currentUser = await account.get();
+          if (currentUser) {
+            console.log('[OAuth] User found:', currentUser.email);
+            const sessions = await account.listSessions();
+            if (sessions.sessions.length > 0) {
+              await saveSession(sessions.sessions[0].$id);
+              return sessions.sessions[0];
+            }
+          }
+        } catch (e) {
+          console.log('[OAuth] Session check failed:', e);
+        }
+      } else if (result.type === 'cancel') {
+        console.log('[OAuth] User cancelled');
+      } else if (result.type === 'dismiss') {
+        console.log('[OAuth] Browser dismissed');
+      }
+
+      return null;
     } catch (error) {
+      console.error('[OAuth] Google error:', error);
       throw error;
     }
   },
 
-  // Login with Apple
-  async loginWithApple(): Promise<void> {
+  // Login with Apple using WebBrowser
+  async loginWithApple(): Promise<Models.Session | null> {
     try {
-      await account.createOAuth2Session(
-        OAuthProvider.Apple,
-        'marketingtool://oauth',
-        'marketingtool://oauth'
-      );
+      const redirectUri = makeRedirectUri({
+        scheme: 'marketingtool',
+        path: 'oauth',
+      });
+
+      const oauthUrl = `${APPWRITE_ENDPOINT}/account/sessions/oauth2/apple?project=${APPWRITE_PROJECT_ID}&success=${encodeURIComponent(redirectUri)}&failure=${encodeURIComponent(redirectUri)}`;
+
+      const result = await WebBrowser.openAuthSessionAsync(oauthUrl, redirectUri);
+
+      if (result.type === 'success' && result.url) {
+        const url = new URL(result.url);
+        const secret = url.searchParams.get('secret');
+        const userId = url.searchParams.get('userId');
+
+        if (secret && userId) {
+          const session = await account.createSession(userId, secret);
+          await saveSession(session.$id);
+          return session;
+        }
+
+        try {
+          const currentUser = await account.get();
+          if (currentUser) {
+            const sessions = await account.listSessions();
+            if (sessions.sessions.length > 0) {
+              await saveSession(sessions.sessions[0].$id);
+              return sessions.sessions[0];
+            }
+          }
+        } catch (e) {
+          // Session check failed
+        }
+      }
+
+      return null;
     } catch (error) {
+      console.error('Apple OAuth error:', error);
       throw error;
     }
   },
 
-  // Login with Facebook
-  async loginWithFacebook(): Promise<void> {
+  // Login with Facebook using WebBrowser
+  async loginWithFacebook(): Promise<Models.Session | null> {
     try {
-      await account.createOAuth2Session(
-        OAuthProvider.Facebook,
-        'marketingtool://oauth',
-        'marketingtool://oauth'
-      );
+      const redirectUri = makeRedirectUri({
+        scheme: 'marketingtool',
+        path: 'oauth',
+      });
+
+      const oauthUrl = `${APPWRITE_ENDPOINT}/account/sessions/oauth2/facebook?project=${APPWRITE_PROJECT_ID}&success=${encodeURIComponent(redirectUri)}&failure=${encodeURIComponent(redirectUri)}`;
+
+      const result = await WebBrowser.openAuthSessionAsync(oauthUrl, redirectUri);
+
+      if (result.type === 'success' && result.url) {
+        const url = new URL(result.url);
+        const secret = url.searchParams.get('secret');
+        const userId = url.searchParams.get('userId');
+
+        if (secret && userId) {
+          const session = await account.createSession(userId, secret);
+          await saveSession(session.$id);
+          return session;
+        }
+
+        try {
+          const currentUser = await account.get();
+          if (currentUser) {
+            const sessions = await account.listSessions();
+            if (sessions.sessions.length > 0) {
+              await saveSession(sessions.sessions[0].$id);
+              return sessions.sessions[0];
+            }
+          }
+        } catch (e) {
+          // Session check failed
+        }
+      }
+
+      return null;
     } catch (error) {
+      console.error('Facebook OAuth error:', error);
       throw error;
     }
   },

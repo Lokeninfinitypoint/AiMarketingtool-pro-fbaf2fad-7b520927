@@ -92,9 +92,15 @@ const LoginScreen = () => {
 
   const handleGoogleLogin = async () => {
     try {
+      console.log('[Login] Starting Google OAuth...');
       await loginWithGoogle();
+      console.log('[Login] Google OAuth completed');
     } catch (err: any) {
-      Alert.alert('Google Login Failed', err.message);
+      console.error('[Login] Google OAuth error:', err);
+      Alert.alert(
+        'Google Login Failed',
+        err.message || 'Please check your internet connection and try again'
+      );
     }
   };
 

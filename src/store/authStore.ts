@@ -101,7 +101,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loginWithGoogle: async () => {
     set({ isLoading: true, error: null });
     try {
-      await authService.loginWithGoogle();
+      const session = await authService.loginWithGoogle();
+      if (session) {
+        const user = await authService.getCurrentUser();
+        if (user) {
+          const profile = await get().fetchOrCreateProfile(user);
+          set({ user, profile, isAuthenticated: true, isLoading: false });
+          return;
+        }
+      }
+      set({ isLoading: false, error: 'Google login was cancelled or failed' });
     } catch (error: any) {
       set({ error: error.message || 'Google login failed', isLoading: false });
       throw error;
@@ -111,7 +120,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loginWithApple: async () => {
     set({ isLoading: true, error: null });
     try {
-      await authService.loginWithApple();
+      const session = await authService.loginWithApple();
+      if (session) {
+        const user = await authService.getCurrentUser();
+        if (user) {
+          const profile = await get().fetchOrCreateProfile(user);
+          set({ user, profile, isAuthenticated: true, isLoading: false });
+          return;
+        }
+      }
+      set({ isLoading: false, error: 'Apple login was cancelled or failed' });
     } catch (error: any) {
       set({ error: error.message || 'Apple login failed', isLoading: false });
       throw error;
@@ -121,7 +139,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loginWithFacebook: async () => {
     set({ isLoading: true, error: null });
     try {
-      await authService.loginWithFacebook();
+      const session = await authService.loginWithFacebook();
+      if (session) {
+        const user = await authService.getCurrentUser();
+        if (user) {
+          const profile = await get().fetchOrCreateProfile(user);
+          set({ user, profile, isAuthenticated: true, isLoading: false });
+          return;
+        }
+      }
+      set({ isLoading: false, error: 'Facebook login was cancelled or failed' });
     } catch (error: any) {
       set({ error: error.message || 'Facebook login failed', isLoading: false });
       throw error;
