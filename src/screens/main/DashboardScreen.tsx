@@ -41,62 +41,89 @@ const DashboardImages = {
   webAnalytics: require('../../assets/images/dashboard/web-analytics.jpg'),
 };
 
+// LOCAL Category images - guaranteed to work
+const CategoryImageAssets = {
+  'google-ads': require('../../assets/images/categories/google-ads.jpg'),
+  'google-seo': require('../../assets/images/categories/google-seo.jpg'),
+  'google-analytics': require('../../assets/images/categories/google-analytics.jpg'),
+  'google-content': require('../../assets/images/categories/google-content.jpg'),
+  'facebook-ads': require('../../assets/images/categories/facebook-ads.jpg'),
+  'instagram': require('../../assets/images/categories/instagram.jpg'),
+  'social-media': require('../../assets/images/categories/social-media.jpg'),
+  'meta-content': require('../../assets/images/categories/meta-content.jpg'),
+  'shopify-products': require('../../assets/images/categories/shopify-products.jpg'),
+  'shopify-ads': require('../../assets/images/categories/shopify-ads.jpg'),
+  'email-marketing': require('../../assets/images/categories/email-marketing.jpg'),
+  'ecommerce-seo': require('../../assets/images/categories/ecommerce-seo.jpg'),
+  'ai-agents': require('../../assets/images/categories/ai-agents.jpg'),
+  'content-creation': require('../../assets/images/categories/content-creation.jpg'),
+};
+
+// Banner images for horizontal scroll
+const BannerImages = {
+  banner1: require('../../assets/images/banners/banner-1.jpg'),
+  banner2: require('../../assets/images/banners/banner-2.jpg'),
+  banner3: require('../../assets/images/banners/banner-3.jpg'),
+  banner4: require('../../assets/images/banners/banner-4.jpg'),
+  banner5: require('../../assets/images/banners/banner-5.jpg'),
+};
+
 // Category images mapping with gradients
 const CategoryImages: Record<string, { image: any; gradient: string[] }> = {
   'google-ads': {
-    image: { uri: 'https://marketingtool.pro/static/images/tools/google-ads.avif' },
+    image: CategoryImageAssets['google-ads'],
     gradient: ['#4285F4', '#1A73E8']
   },
   'google-seo': {
-    image: { uri: 'https://marketingtool.pro/static/images/tools/seo.avif' },
+    image: CategoryImageAssets['google-seo'],
     gradient: ['#34A853', '#1E8E3E']
   },
   'google-analytics': {
-    image: { uri: 'https://marketingtool.pro/static/images/tools/analytics.avif' },
+    image: CategoryImageAssets['google-analytics'],
     gradient: ['#F9AB00', '#E37400']
   },
   'google-content': {
-    image: { uri: 'https://marketingtool.pro/static/images/tools/content.avif' },
+    image: CategoryImageAssets['google-content'],
     gradient: ['#EA4335', '#C5221F']
   },
   'facebook-ads': {
-    image: { uri: 'https://marketingtool.pro/static/images/tools/facebook.avif' },
+    image: CategoryImageAssets['facebook-ads'],
     gradient: ['#1877F2', '#0C5DC7']
   },
   'instagram': {
-    image: { uri: 'https://marketingtool.pro/static/images/tools/instagram.avif' },
+    image: CategoryImageAssets['instagram'],
     gradient: ['#E4405F', '#C13584']
   },
   'social-media': {
-    image: { uri: 'https://marketingtool.pro/static/images/tools/social.avif' },
+    image: CategoryImageAssets['social-media'],
     gradient: ['#833AB4', '#5851DB']
   },
   'meta-content': {
-    image: { uri: 'https://marketingtool.pro/static/images/tools/meta-content.avif' },
+    image: CategoryImageAssets['meta-content'],
     gradient: ['#0088FF', '#00C6FF']
   },
   'shopify-products': {
-    image: { uri: 'https://marketingtool.pro/static/images/tools/shopify.avif' },
+    image: CategoryImageAssets['shopify-products'],
     gradient: ['#96BF48', '#5E8E3E']
   },
   'shopify-ads': {
-    image: { uri: 'https://marketingtool.pro/static/images/tools/shopping-ads.avif' },
+    image: CategoryImageAssets['shopify-ads'],
     gradient: ['#5C6BC0', '#3949AB']
   },
   'email-marketing': {
-    image: { uri: 'https://marketingtool.pro/static/images/tools/email.avif' },
+    image: CategoryImageAssets['email-marketing'],
     gradient: ['#FF6B6B', '#EE5A5A']
   },
   'ecommerce-seo': {
-    image: { uri: 'https://marketingtool.pro/static/images/tools/ecommerce-seo.avif' },
+    image: CategoryImageAssets['ecommerce-seo'],
     gradient: ['#00BFA5', '#00897B']
   },
   'ai-agents': {
-    image: { uri: 'https://marketingtool.pro/static/images/tools/ai-agents.avif' },
+    image: CategoryImageAssets['ai-agents'],
     gradient: ['#FF6B35', '#F7931E']
   },
   'content-creation': {
-    image: { uri: 'https://marketingtool.pro/static/images/tools/content-creation.avif' },
+    image: CategoryImageAssets['content-creation'],
     gradient: ['#7C4DFF', '#651FFF']
   },
 };
@@ -107,10 +134,11 @@ const getCategoryGradient = (categoryId: string): string[] => {
 };
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-// Animated Stat Card with pulse effect
-const AnimatedStatCard = ({ stat, index }: { stat: any; index: number }) => {
+// Animated Stat Card with pulse effect - NOW CLICKABLE
+const AnimatedStatCard = ({ stat, index, onPress }: { stat: any; index: number; onPress: () => void }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     // Staggered pulse animation
@@ -152,26 +180,46 @@ const AnimatedStatCard = ({ stat, index }: { stat: any; index: number }) => {
     startAnimation();
   }, []);
 
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, { toValue: 0.92, useNativeDriver: true }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }).start();
+  };
+
   return (
-    <Animated.View style={[styles.statCard, { transform: [{ scale: pulseAnim }] }]}>
-      <Animated.View
-        style={[
-          styles.statGlow,
-          {
-            backgroundColor: stat.color,
-            opacity: glowAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 0.15]
-            })
-          }
-        ]}
-      />
-      <View style={[styles.statIcon, { backgroundColor: stat.color + '15' }]}>
-        <Feather name={stat.icon as any} size={20} color={stat.color} />
-      </View>
-      <Text style={styles.statValue}>{stat.value}</Text>
-      <Text style={styles.statLabel}>{stat.label}</Text>
-    </Animated.View>
+    <TouchableOpacity
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      activeOpacity={0.9}
+    >
+      <Animated.View style={[styles.statCard, { transform: [{ scale: Animated.multiply(pulseAnim, scaleAnim) }] }]}>
+        <Animated.View
+          style={[
+            styles.statGlow,
+            {
+              backgroundColor: stat.color,
+              opacity: glowAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 0.25]
+              })
+            }
+          ]}
+        />
+        <View style={[styles.statIcon, { backgroundColor: stat.color + '20' }]}>
+          <Feather name={stat.icon as any} size={20} color={stat.color} />
+        </View>
+        <Text style={styles.statValue}>{stat.value}</Text>
+        <Text style={styles.statLabel}>{stat.label}</Text>
+        {stat.badge && (
+          <View style={[styles.statBadge, { backgroundColor: stat.color + '20' }]}>
+            <Text style={[styles.statBadgeText, { color: stat.color }]}>{stat.badge}</Text>
+          </View>
+        )}
+      </Animated.View>
+    </TouchableOpacity>
   );
 };
 
@@ -213,10 +261,19 @@ const DashboardScreen = () => {
   };
 
   const stats = [
-    { label: 'AI Tools', value: '206+', icon: 'zap', color: Colors.secondary, badge: '+12 new' },
-    { label: 'Generated', value: generationsCount > 0 ? generationsCount.toString() : '0', icon: 'layers', color: Colors.success, badge: generationsCount > 0 ? 'Active' : 'Start' },
-    { label: 'Campaigns', value: campaignsCount > 0 ? campaignsCount.toString() : '0', icon: 'target', color: Colors.accent, badge: campaignsCount > 0 ? `${campaignsCount} tools` : 'New' },
-    { label: 'Success', value: '98%', icon: 'trending-up', color: Colors.gold, badge: '+5%' },
+    { label: 'AI Tools', value: '206+', icon: 'zap', color: Colors.secondary, badge: '+12 new', screen: 'Tools' },
+    { label: 'Generated', value: generationsCount > 0 ? generationsCount.toString() : '0', icon: 'layers', color: Colors.success, badge: generationsCount > 0 ? 'Active' : 'Start', screen: 'History' },
+    { label: 'Campaigns', value: campaignsCount > 0 ? campaignsCount.toString() : '0', icon: 'target', color: Colors.accent, badge: campaignsCount > 0 ? `${campaignsCount} tools` : 'New', screen: 'Tools' },
+    { label: 'Success', value: '98%', icon: 'trending-up', color: Colors.gold, badge: '+5%', screen: 'History' },
+  ];
+
+  // Horizontal banner data
+  const bannerSlides = [
+    { id: 1, image: BannerImages.banner1, title: 'AI Marketing Pro', subtitle: 'Create stunning ads in seconds', color: '#6C5CE7' },
+    { id: 2, image: BannerImages.banner2, title: 'Smart Content', subtitle: 'AI-powered writing assistant', color: '#00B894' },
+    { id: 3, image: BannerImages.banner3, title: 'ROI Boost', subtitle: 'Data-driven strategies', color: '#E17055' },
+    { id: 4, image: BannerImages.banner4, title: 'Digital Growth', subtitle: 'Scale your business faster', color: '#0984E3' },
+    { id: 5, image: BannerImages.banner5, title: 'Marketing Suite', subtitle: 'All tools in one place', color: '#A29BFE' },
   ];
 
   const quickActions = [
@@ -345,10 +402,49 @@ const DashboardScreen = () => {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Stats Grid with Animations */}
+        {/* Horizontal Banner Carousel */}
+        <View style={styles.bannerSection}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            pagingEnabled
+            snapToInterval={width - 40}
+            decelerationRate="fast"
+            contentContainerStyle={styles.bannerScroll}
+          >
+            {bannerSlides.map((slide) => (
+              <TouchableOpacity
+                key={slide.id}
+                style={styles.bannerSlide}
+                onPress={() => navigation.navigate('Main', { screen: 'Tools' } as any)}
+                activeOpacity={0.9}
+              >
+                <Image source={slide.image} style={styles.bannerImage} resizeMode="cover" />
+                <LinearGradient
+                  colors={['transparent', `${slide.color}CC`, slide.color]}
+                  style={styles.bannerGradient}
+                >
+                  <Text style={styles.bannerTitle}>{slide.title}</Text>
+                  <Text style={styles.bannerSubtitle}>{slide.subtitle}</Text>
+                  <View style={styles.bannerButton}>
+                    <Text style={styles.bannerButtonText}>Explore</Text>
+                    <Feather name="arrow-right" size={14} color="#FFF" />
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Stats Grid with Animations - NOW CLICKABLE */}
         <View style={styles.statsGrid}>
           {stats.map((stat, index) => (
-            <AnimatedStatCard key={index} stat={stat} index={index} />
+            <AnimatedStatCard
+              key={index}
+              stat={stat}
+              index={index}
+              onPress={() => navigation.navigate('Main', { screen: stat.screen as any } as any)}
+            />
           ))}
         </View>
 
@@ -726,6 +822,68 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: Colors.textSecondary,
     marginTop: 2,
+  },
+  statBadge: {
+    marginTop: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  statBadgeText: {
+    fontSize: 8,
+    fontWeight: '600',
+  },
+  bannerSection: {
+    marginBottom: Spacing.lg,
+  },
+  bannerScroll: {
+    paddingHorizontal: Spacing.lg,
+  },
+  bannerSlide: {
+    width: width - 48,
+    height: 160,
+    marginRight: Spacing.md,
+    borderRadius: BorderRadius.xl,
+    overflow: 'hidden',
+  },
+  bannerImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+  },
+  bannerGradient: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    padding: Spacing.md,
+  },
+  bannerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.white,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  bannerSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: 2,
+  },
+  bannerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginTop: 8,
+    gap: 4,
+  },
+  bannerButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.white,
   },
   section: {
     paddingHorizontal: Spacing.lg,
