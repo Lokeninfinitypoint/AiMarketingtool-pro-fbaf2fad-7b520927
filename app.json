@@ -21,6 +21,7 @@
       "bundleIdentifier": "pro.marketingtool.app",
       "buildNumber": "12",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "Allow MarketingTool to access your camera for profile photos and content creation.",
         "NSPhotoLibraryUsageDescription": "Allow MarketingTool to access your photos for uploading media content.",
         "NSMicrophoneUsageDescription": "Allow MarketingTool to access your microphone for voice features.",
