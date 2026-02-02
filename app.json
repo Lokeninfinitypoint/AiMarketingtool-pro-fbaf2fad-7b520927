@@ -2,7 +2,7 @@
   "expo": {
     "name": "MarketingTool",
     "slug": "marketingtool",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -19,7 +19,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "pro.marketingtool.app",
-      "buildNumber": "1",
+      "buildNumber": "12",
       "infoPlist": {
         "NSCameraUsageDescription": "Allow MarketingTool to access your camera for profile photos and content creation.",
         "NSPhotoLibraryUsageDescription": "Allow MarketingTool to access your photos for uploading media content.",
@@ -47,7 +47,7 @@
         "backgroundColor": "#0D0F1C"
       },
       "package": "pro.marketingtool.app",
-      "versionCode": 9,
+      "versionCode": 12,
       "edgeToEdgeEnabled": true,
       "permissions": [
         "CAMERA",
@@ -134,9 +134,7 @@
     "extra": {
       "appwriteEndpoint": "https://api.marketingtool.pro/v1",
       "appwriteProjectId": "6952c8a0002d3365625d",
-      "aiApiUrl": "https://api.marketingtool.pro",
-      "openaiApiKey": "",
-      "anthropicApiKey": "",
+      "aiApiUrl": "https://app.marketingtool.pro",
       "eas": {
         "projectId": "93b0a546-bd05-4250-b2c9-58aa43ecc1f2"
       }
