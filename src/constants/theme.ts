@@ -56,6 +56,14 @@ export const Colors = {
   overlay: 'rgba(0, 0, 0, 0.7)',
   overlayLight: 'rgba(0, 0, 0, 0.5)',
 
+  // Glassmorphism
+  glass: 'rgba(255, 255, 255, 0.05)',
+  glassBorder: 'rgba(255, 255, 255, 0.1)',
+  glassLight: 'rgba(255, 255, 255, 0.08)',
+  glassDark: 'rgba(0, 0, 0, 0.3)',
+  glassCard: 'rgba(26, 26, 46, 0.7)',
+  glassAccent: 'rgba(100, 65, 165, 0.15)',
+
   // Transparent
   transparent: 'transparent',
 
@@ -165,6 +173,45 @@ export const Shadow = {
     shadowOpacity: 0.5,
     shadowRadius: 16,
     elevation: 10,
+  },
+  glass: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  glassSubtle: {
+    shadowColor: '#6441A5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+};
+
+// Glassmorphism style helper
+export const GlassStyle = {
+  card: {
+    backgroundColor: 'rgba(26, 26, 46, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backdropFilter: 'blur(20px)',
+  },
+  cardLight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  input: {
+    backgroundColor: 'rgba(18, 18, 18, 0.8)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  button: {
+    backgroundColor: 'rgba(247, 84, 30, 0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
 };
 

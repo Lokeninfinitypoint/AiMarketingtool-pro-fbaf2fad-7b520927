@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -34,58 +34,57 @@ const FloatingParticle = ({ delay, size, startX, startY, color }: {
   const scale = useRef(new Animated.Value(0.5)).current;
 
   useEffect(() => {
-    const animate = () => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.parallel([
-            Animated.timing(translateY, {
-              toValue: -height * 0.4,
-              duration: 8000 + Math.random() * 4000,
-              easing: Easing.out(Easing.ease),
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.delay(delay),
+        Animated.parallel([
+          Animated.timing(translateY, {
+            toValue: -height * 0.4,
+            duration: 8000 + Math.random() * 4000,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateX, {
+            toValue: (Math.random() - 0.5) * 100,
+            duration: 8000 + Math.random() * 4000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.sequence([
+            Animated.timing(opacity, {
+              toValue: 0.6,
+              duration: 2000,
               useNativeDriver: true,
             }),
-            Animated.timing(translateX, {
-              toValue: (Math.random() - 0.5) * 100,
-              duration: 8000 + Math.random() * 4000,
-              easing: Easing.inOut(Easing.ease),
+            Animated.timing(opacity, {
+              toValue: 0,
+              duration: 6000,
               useNativeDriver: true,
             }),
-            Animated.sequence([
-              Animated.timing(opacity, {
-                toValue: 0.6,
-                duration: 2000,
-                useNativeDriver: true,
-              }),
-              Animated.timing(opacity, {
-                toValue: 0,
-                duration: 6000,
-                useNativeDriver: true,
-              }),
-            ]),
-            Animated.sequence([
-              Animated.timing(scale, {
-                toValue: 1,
-                duration: 3000,
-                useNativeDriver: true,
-              }),
-              Animated.timing(scale, {
-                toValue: 0.3,
-                duration: 5000,
-                useNativeDriver: true,
-              }),
-            ]),
           ]),
-          Animated.parallel([
-            Animated.timing(translateY, { toValue: 0, duration: 0, useNativeDriver: true }),
-            Animated.timing(translateX, { toValue: 0, duration: 0, useNativeDriver: true }),
-            Animated.timing(opacity, { toValue: 0, duration: 0, useNativeDriver: true }),
-            Animated.timing(scale, { toValue: 0.5, duration: 0, useNativeDriver: true }),
+          Animated.sequence([
+            Animated.timing(scale, {
+              toValue: 1,
+              duration: 3000,
+              useNativeDriver: true,
+            }),
+            Animated.timing(scale, {
+              toValue: 0.3,
+              duration: 5000,
+              useNativeDriver: true,
+            }),
           ]),
-        ])
-      ).start();
-    };
-    animate();
+        ]),
+        Animated.parallel([
+          Animated.timing(translateY, { toValue: 0, duration: 0, useNativeDriver: true }),
+          Animated.timing(translateX, { toValue: 0, duration: 0, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 0, duration: 0, useNativeDriver: true }),
+          Animated.timing(scale, { toValue: 0.5, duration: 0, useNativeDriver: true }),
+        ]),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
   }, []);
 
   return (
@@ -113,7 +112,7 @@ const GlowRing = ({ delay, maxSize, color }: { delay: number; maxSize: number; c
   const opacity = useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const anim = Animated.loop(
       Animated.sequence([
         Animated.delay(delay),
         Animated.parallel([
@@ -134,7 +133,9 @@ const GlowRing = ({ delay, maxSize, color }: { delay: number; maxSize: number; c
           Animated.timing(opacity, { toValue: 0.8, duration: 0, useNativeDriver: true }),
         ]),
       ])
-    ).start();
+    );
+    anim.start();
+    return () => anim.stop();
   }, []);
 
   return (
@@ -161,7 +162,7 @@ const AnimatedBackground: React.FC<AnimatedBackgroundProps> = ({
   showGradient = true,
   imageSource,
 }) => {
-  const particles = [
+  const particles = useMemo(() => [
     { delay: 0, size: 6, startX: width * 0.1, startY: height * 0.8, color: Colors.secondary + '60' },
     { delay: 1000, size: 8, startX: width * 0.3, startY: height * 0.9, color: Colors.purple + '60' },
     { delay: 2000, size: 5, startX: width * 0.5, startY: height * 0.85, color: Colors.gold + '60' },
@@ -170,7 +171,7 @@ const AnimatedBackground: React.FC<AnimatedBackgroundProps> = ({
     { delay: 500, size: 4, startX: width * 0.2, startY: height * 0.92, color: Colors.success + '60' },
     { delay: 1500, size: 5, startX: width * 0.6, startY: height * 0.87, color: Colors.purple + '60' },
     { delay: 2500, size: 8, startX: width * 0.8, startY: height * 0.93, color: Colors.gold + '60' },
-  ];
+  ], []);
 
   const getGradientColors = () => {
     switch (variant) {

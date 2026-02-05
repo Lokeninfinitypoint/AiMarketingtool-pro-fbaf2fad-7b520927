@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { Models } from 'react-native-appwrite';
+import { Models, Query } from 'react-native-appwrite';
 import { authService, dbService, COLLECTIONS } from '../services/appwrite';
+import { biometricService } from '../services/biometric';
 
 interface UserProfile {
   $id: string;
@@ -8,7 +9,7 @@ interface UserProfile {
   name: string;
   email: string;
   avatar?: string;
-  subscription: 'free' | 'starter' | 'pro' | 'enterprise';
+  subscription: 'free' | 'starter' | 'pro' | 'alltools';
   generationsUsed: number;
   generationsLimit: number;
   credits?: number;
@@ -24,6 +25,8 @@ interface AuthState {
   isLoading: boolean;
   isAuthenticated: boolean;
   error: string | null;
+  biometricEnabled: boolean;
+  biometricPending: boolean;
 
   // Actions
   login: (email: string, password: string) => Promise<void>;
@@ -31,12 +34,18 @@ interface AuthState {
   loginWithGoogle: () => Promise<void>;
   loginWithApple: () => Promise<void>;
   loginWithFacebook: () => Promise<void>;
+  sendPhoneOTP: (phone: string) => Promise<string>;
+  verifyPhoneOTP: (userId: string, otp: string) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   clearError: () => void;
   fetchOrCreateProfile: (user: Models.User<Models.Preferences>) => Promise<UserProfile>;
+  enableBiometric: () => Promise<boolean>;
+  disableBiometric: () => Promise<void>;
+  authenticateWithBiometric: () => Promise<boolean>;
+  loadBiometricState: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -45,25 +54,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: true,
   isAuthenticated: false,
   error: null,
+  biometricEnabled: false,
+  biometricPending: false,
 
   login: async (email: string, password: string) => {
     set({ isLoading: true, error: null });
-
-    // Guest/Demo mode - bypass API for testing
-    if (email === 'guest@test.com' && password === 'guest123') {
-      const mockUser = { $id: 'guest', name: 'Guest User', email: 'guest@test.com' } as any;
-      const mockProfile = {
-        $id: 'guest-profile',
-        userId: 'guest',
-        subscription: 'pro',
-        generationsCount: 42,
-        savedCount: 15,
-        toolsUsed: 8,
-        avatar: null,
-      } as any;
-      set({ user: mockUser, profile: mockProfile, isAuthenticated: true, isLoading: false });
-      return;
-    }
 
     try {
       // Add timeout to prevent hanging
@@ -155,6 +150,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  sendPhoneOTP: async (phone: string): Promise<string> => {
+    set({ isLoading: true, error: null });
+    try {
+      const token = await authService.sendPhoneOTP(phone);
+      set({ isLoading: false });
+      return token.userId;
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to send OTP', isLoading: false });
+      throw error;
+    }
+  },
+
+  verifyPhoneOTP: async (userId: string, otp: string): Promise<void> => {
+    set({ isLoading: true, error: null });
+    try {
+      await authService.verifyPhoneOTP(userId, otp);
+      const user = await authService.getCurrentUser();
+      if (user) {
+        const profile = await get().fetchOrCreateProfile(user);
+        set({ user, profile, isAuthenticated: true, isLoading: false });
+      }
+    } catch (error: any) {
+      set({ error: error.message || 'OTP verification failed', isLoading: false });
+      throw error;
+    }
+  },
+
   logout: async () => {
     set({ isLoading: true });
     try {
@@ -164,6 +186,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         profile: null,
         isAuthenticated: false,
         isLoading: false,
+        biometricPending: false,
       });
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
@@ -182,6 +205,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         timeoutPromise
       ]) as any;
       if (user) {
+        // Check if biometric is enabled
+        const bioEnabled = await biometricService.isBiometricEnabled();
+        if (bioEnabled) {
+          // Session exists + biometric enabled: wait for biometric before restoring
+          set({ user, biometricEnabled: true, biometricPending: true, isLoading: false, isAuthenticated: false });
+          return;
+        }
         const profile = await get().fetchOrCreateProfile(user);
         set({ user, profile, isAuthenticated: true, isLoading: false });
       } else {
@@ -224,13 +254,48 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 
+  enableBiometric: async (): Promise<boolean> => {
+    const available = await biometricService.isBiometricAvailable();
+    if (!available) return false;
+    const success = await biometricService.authenticate('Verify to enable biometric login');
+    if (success) {
+      await biometricService.setBiometricEnabled(true);
+      set({ biometricEnabled: true });
+      return true;
+    }
+    return false;
+  },
+
+  disableBiometric: async () => {
+    await biometricService.setBiometricEnabled(false);
+    set({ biometricEnabled: false });
+  },
+
+  authenticateWithBiometric: async (): Promise<boolean> => {
+    const success = await biometricService.authenticate('Sign in to MarketingTool');
+    if (success) {
+      const { user } = get();
+      if (user) {
+        const profile = await get().fetchOrCreateProfile(user);
+        set({ profile, isAuthenticated: true, biometricPending: false });
+        return true;
+      }
+    }
+    return false;
+  },
+
+  loadBiometricState: async () => {
+    const enabled = await biometricService.isBiometricEnabled();
+    set({ biometricEnabled: enabled });
+  },
+
   // Helper function to fetch or create user profile
   fetchOrCreateProfile: async (user: Models.User<Models.Preferences>): Promise<UserProfile> => {
     try {
       // Try to fetch existing profile
       const profiles = await dbService.listDocuments<UserProfile & Models.Document>(
         COLLECTIONS.USERS,
-        [`userId=${user.$id}`]
+        [Query.equal('userId', user.$id)]
       );
 
       if (profiles.documents.length > 0) {

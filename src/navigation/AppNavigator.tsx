@@ -32,8 +32,8 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Auth: undefined;
   Main: undefined;
-  ToolDetail: { toolSlug: string };
-  ToolResult: { toolSlug: string; result: any };
+  ToolDetail: { toolSlug: string; prefillInputs?: Record<string, string> };
+  ToolResult: { toolSlug: string; result: any; inputs?: Record<string, string> };
   MemeGenerator: undefined;
   Settings: undefined;
   Subscription: undefined;

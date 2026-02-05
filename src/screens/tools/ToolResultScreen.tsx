@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { useToolsStore } from '../../store/toolsStore';
+import { useAuthStore } from '../../store/authStore';
 import { Colors, Gradients, Spacing, BorderRadius } from '../../constants/theme';
 import AnimatedBackground from '../../components/common/AnimatedBackground';
 
@@ -46,39 +47,49 @@ interface GeneratedOutput {
 const ToolResultScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteType>();
-  const { toolSlug, result } = route.params;
-  const { tools } = useToolsStore();
+  const { toolSlug, result, inputs: savedInputs } = route.params;
+  const { tools, addGeneration } = useToolsStore();
+  const { user } = useAuthStore();
 
   const tool = tools.find(t => t.slug === toolSlug);
 
-  // Parse results - in real app this would come from API
+  // Parse results from AI generation
   const [outputs, setOutputs] = useState<GeneratedOutput[]>(
     result?.outputs?.map((content: string, index: number) => ({
       id: `output-${index}`,
       content,
       liked: false,
-    })) || [
-      {
-        id: 'output-1',
-        content: 'This is a sample generated content. In the real application, this would be AI-generated content based on your inputs.',
-        liked: false,
-      },
-      {
-        id: 'output-2',
-        content: 'Here is another variation of the generated content. The AI creates multiple options so you can choose the best one for your needs.',
-        liked: false,
-      },
-      {
-        id: 'output-3',
-        content: 'A third creative option for your consideration. Each output is unique and tailored to your specifications.',
-        liked: false,
-      },
-    ]
+    })) || []
   );
 
   const [selectedOutput, setSelectedOutput] = useState<string | null>(outputs[0]?.id);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showFullContent, setShowFullContent] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  // Auto-save to history on mount
+  useEffect(() => {
+    const autoSave = async () => {
+      if (result?.outputs?.length && user && tool && !isSaved) {
+        try {
+          await addGeneration({
+            userId: user.$id,
+            toolId: tool.$id,
+            toolName: tool.name,
+            input: savedInputs || {},
+            output: result.outputs.join('\n\n---\n\n'),
+            outputType: tool.outputType || 'text',
+            createdAt: new Date().toISOString(),
+            isFavorite: false,
+          });
+          setIsSaved(true);
+        } catch (e) {
+          // Silent fail — user can manually save
+        }
+      }
+    };
+    autoSave();
+  }, []);
 
   // Detect if this is a large/desktop-preferred result
   const isLargeOutput = useMemo(() => {
@@ -127,11 +138,35 @@ const ToolResultScreen = () => {
   };
 
   const handleRegenerate = () => {
-    navigation.goBack();
+    if (tool && savedInputs) {
+      navigation.navigate('ToolDetail', { toolSlug: tool.slug, prefillInputs: savedInputs });
+    } else {
+      navigation.goBack();
+    }
   };
 
-  const handleSaveToHistory = () => {
-    Alert.alert('Saved', 'Content saved to your history');
+  const handleSaveToHistory = async () => {
+    if (isSaved) {
+      Alert.alert('Already Saved', 'This content is already in your history.');
+      return;
+    }
+    if (!user || !tool) return;
+    try {
+      await addGeneration({
+        userId: user.$id,
+        toolId: tool.$id,
+        toolName: tool.name,
+        input: savedInputs || {},
+        output: outputs.map(o => o.content).join('\n\n---\n\n'),
+        outputType: tool.outputType || 'text',
+        createdAt: new Date().toISOString(),
+        isFavorite: false,
+      });
+      setIsSaved(true);
+      Alert.alert('Saved', 'Content saved to your history');
+    } catch (e) {
+      Alert.alert('Error', 'Could not save. Please try again.');
+    }
   };
 
   const handleExport = () => {
@@ -309,8 +344,14 @@ const ToolResultScreen = () => {
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.actionBtn} onPress={handleSaveToHistory}>
-                <Feather name="bookmark" size={20} color={Colors.textSecondary} />
-                <Text style={styles.actionText}>Save</Text>
+                <Feather
+                  name={isSaved ? 'check' : 'bookmark'}
+                  size={20}
+                  color={isSaved ? Colors.success : Colors.textSecondary}
+                />
+                <Text style={[styles.actionText, isSaved && { color: Colors.success }]}>
+                  {isSaved ? 'Saved' : 'Save'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

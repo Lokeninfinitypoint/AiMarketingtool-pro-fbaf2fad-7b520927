@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Image,
   Dimensions,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -36,7 +37,6 @@ interface Plan {
   features: PlanFeature[];
   popular?: boolean;
   trialDays?: number;
-  isLifetime?: boolean;
 }
 
 const SubscriptionScreen = () => {
@@ -46,6 +46,7 @@ const SubscriptionScreen = () => {
   const [selectedPlan, setSelectedPlan] = useState<string>('pro');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Pricing must match rules.md (root-admin port 3010)
   const plans: Plan[] = [
     {
       id: 'free',
@@ -65,14 +66,14 @@ const SubscriptionScreen = () => {
     },
     {
       id: 'starter',
-      name: 'Single Tool',
-      monthlyPrice: 3,
-      yearlyPrice: 49,
-      description: '1 Platform • 1 Tool Type',
+      name: 'Starter',
+      monthlyPrice: 49,
+      yearlyPrice: 199,
+      description: '1 Category • ~20 tools',
       features: [
-        { text: '1 tool category (20+ tools)', included: true },
+        { text: '1 tool category (~20 tools)', included: true },
         { text: 'Google OR Meta OR Shopify', included: true },
-        { text: 'Unlimited generations', included: true },
+        { text: '200 AI generations/month', included: true },
         { text: 'Email support', included: true },
         { text: 'Full platform access', included: false },
         { text: 'All 3 platforms', included: false },
@@ -80,34 +81,33 @@ const SubscriptionScreen = () => {
     },
     {
       id: 'pro',
-      name: 'Full Platform',
-      monthlyPrice: 9,
-      yearlyPrice: 99,
+      name: 'Professional',
+      monthlyPrice: 99,
+      yearlyPrice: 499,
       description: '1 Platform • All Tools',
       popular: true,
       features: [
-        { text: 'Full 1 platform (70+ tools)', included: true },
+        { text: 'Full 1 platform (56-77 tools)', included: true },
         { text: 'Google OR Meta OR Shopify', included: true },
-        { text: 'Unlimited generations', included: true },
+        { text: '500 AI generations/month', included: true },
         { text: 'Priority support', included: true },
         { text: 'Advanced analytics', included: true },
         { text: 'All 3 platforms', included: false },
       ],
     },
     {
-      id: 'enterprise',
-      name: 'All Platforms',
-      monthlyPrice: 16,
-      yearlyPrice: 499,
+      id: 'alltools',
+      name: 'All Tools',
+      monthlyPrice: 150,
+      yearlyPrice: 999,
       description: 'All 3 Platforms • 206+ Tools',
-      isLifetime: true,
       features: [
         { text: 'All 206+ AI marketing tools', included: true },
         { text: 'Google + Meta + Shopify', included: true },
-        { text: 'Unlimited generations', included: true },
-        { text: 'Dedicated support', included: true },
-        { text: 'AI Marketing Agents', included: true },
-        { text: 'White-label option', included: true },
+        { text: '1,500 AI generations/month', included: true },
+        { text: 'Priority support', included: true },
+        { text: 'Full analytics & reporting', included: true },
+        { text: 'Cancel anytime', included: true },
       ],
     },
   ];
@@ -118,25 +118,18 @@ const SubscriptionScreen = () => {
       return;
     }
 
-    setIsLoading(true);
+    const plan = plans.find(p => p.id === selectedPlan);
+    if (!plan) return;
 
-    // Simulate payment processing
-    setTimeout(() => {
+    setIsLoading(true);
+    try {
+      const checkoutUrl = `https://app.marketingtool.pro/dashboard/checkout?plan=${selectedPlan}&cycle=${billingPeriod}`;
+      await Linking.openURL(checkoutUrl);
+    } catch {
+      Alert.alert('Error', 'Could not open checkout. Please try again.');
+    } finally {
       setIsLoading(false);
-      Alert.alert(
-        'Subscription Updated',
-        `You are now subscribed to the ${plans.find(p => p.id === selectedPlan)?.name} plan!`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              updateProfile({ subscription: selectedPlan as 'free' | 'starter' | 'pro' | 'enterprise' });
-              navigation.goBack();
-            },
-          },
-        ]
-      );
-    }, 2000);
+    }
   };
 
   const getPrice = (plan: Plan) => {
@@ -147,9 +140,6 @@ const SubscriptionScreen = () => {
   };
 
   const getSavings = (plan: Plan) => {
-    if (plan.isLifetime) {
-      return 0;
-    }
     if (billingPeriod === 'yearly' && plan.monthlyPrice > 0) {
       const yearlySavings = (plan.monthlyPrice * 12) - plan.yearlyPrice;
       return yearlySavings > 0 ? yearlySavings : 0;
@@ -233,12 +223,6 @@ const SubscriptionScreen = () => {
                 <Text style={styles.popularBadgeText}>MOST POPULAR</Text>
               </View>
             )}
-            {plan.isLifetime && billingPeriod === 'yearly' && (
-              <View style={[styles.popularBadge, styles.lifetimeBadge]}>
-                <Text style={styles.popularBadgeText}>LIFETIME ACCESS</Text>
-              </View>
-            )}
-
             <View style={styles.planHeader}>
               <View>
                 <Text style={styles.planName}>{plan.name}</Text>
@@ -249,9 +233,7 @@ const SubscriptionScreen = () => {
                   ${getPrice(plan)}
                 </Text>
                 <Text style={styles.planPeriod}>
-                  /{billingPeriod === 'yearly'
-                    ? (plan.isLifetime ? 'lifetime' : 'year')
-                    : 'month'}
+                  /{billingPeriod === 'yearly' ? 'year' : 'month'}
                 </Text>
               </View>
             </View>
@@ -302,6 +284,48 @@ const SubscriptionScreen = () => {
               Not satisfied? Get a full refund within 30 days.
             </Text>
           </View>
+        </View>
+
+        {/* Restore Purchases */}
+        <TouchableOpacity
+          style={styles.restoreButton}
+          onPress={async () => {
+            try {
+              Alert.alert('Restoring...', 'Checking your subscription status...');
+              const { fetchOrCreateProfile } = useAuthStore.getState();
+              const { user } = useAuthStore.getState();
+              if (user) {
+                await fetchOrCreateProfile(user);
+                const updatedProfile = useAuthStore.getState().profile;
+                if (updatedProfile?.subscription && updatedProfile.subscription !== 'free') {
+                  Alert.alert('Restored!', `Your ${updatedProfile.subscription} subscription has been restored.`);
+                } else {
+                  Alert.alert('No Subscription Found', 'No active subscription was found for your account. Subscribe to get started.');
+                }
+              }
+            } catch {
+              Alert.alert('Error', 'Could not restore purchases. Please try again.');
+            }
+          }}
+        >
+          <Feather name="refresh-cw" size={16} color={Colors.primary} />
+          <Text style={styles.restoreText}>Restore Purchases</Text>
+        </TouchableOpacity>
+
+        {/* Apple Subscription Disclosure */}
+        <Text style={styles.disclosureText}>
+          Subscriptions automatically renew unless auto-renew is turned off at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours prior to the end of the current period. You can manage and cancel your subscriptions in your App Store account settings.
+        </Text>
+
+        {/* Terms & Privacy Links */}
+        <View style={styles.legalLinks}>
+          <TouchableOpacity onPress={() => Linking.openURL('https://app.marketingtool.pro/dashboard/policy')}>
+            <Text style={styles.legalLink}>Terms of Service</Text>
+          </TouchableOpacity>
+          <Text style={styles.legalDivider}>|</Text>
+          <TouchableOpacity onPress={() => Linking.openURL('https://app.marketingtool.pro/dashboard/policy')}>
+            <Text style={styles.legalLink}>Privacy Policy</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={{ height: 120 }} />
@@ -611,6 +635,42 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
     textAlign: 'center',
     marginTop: Spacing.sm,
+  },
+  restoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.md,
+    gap: 8,
+  },
+  restoreText: {
+    fontSize: 14,
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+  disclosureText: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    lineHeight: 16,
+    textAlign: 'center',
+    paddingHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: Spacing.md,
+    gap: 8,
+  },
+  legalLink: {
+    fontSize: 12,
+    color: Colors.primary,
+    textDecorationLine: 'underline',
+  },
+  legalDivider: {
+    fontSize: 12,
+    color: Colors.textTertiary,
   },
 });
 

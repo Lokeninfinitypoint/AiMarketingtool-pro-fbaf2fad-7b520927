@@ -1,12 +1,15 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet, Animated, Dimensions } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, StyleSheet, Animated, Dimensions, Image } from 'react-native';
 import { Colors } from '../../constants/theme';
 
 const { width, height } = Dimensions.get('window');
 
+// App logo
+const AppLogo = require('../../../assets/icon.png');
+
 const SplashScreen = () => {
-  const fadeAnim = new Animated.Value(0);
-  const scaleAnim = new Animated.Value(0.8);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -36,12 +39,11 @@ const SplashScreen = () => {
         ]}
       >
         <View style={styles.logoWrapper}>
-          <View style={styles.logoShape}>
-            <View style={styles.logoInner}>
-              <View style={styles.logoTopLeft} />
-              <View style={styles.logoBottomRight} />
-            </View>
-          </View>
+          <Image
+            source={AppLogo}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </View>
         <Animated.Text style={styles.brandText}>MarketingTool</Animated.Text>
         <Animated.Text style={styles.taglineText}>AI-Powered Marketing</Animated.Text>
@@ -55,51 +57,22 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#16132B',
+    backgroundColor: '#0D0F1C',
   },
   logoContainer: {
     alignItems: 'center',
   },
   logoWrapper: {
-    width: 100,
-    height: 100,
+    width: 120,
+    height: 120,
     marginBottom: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logoShape: {
-    width: 80,
-    height: 80,
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    transform: [{ rotate: '-5deg' }],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoInner: {
-    width: 50,
-    height: 50,
-    position: 'relative',
-  },
-  logoTopLeft: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 30,
-    height: 30,
-    borderTopWidth: 6,
-    borderLeftWidth: 6,
-    borderColor: '#16132B',
-    borderTopLeftRadius: 8,
-  },
-  logoBottomRight: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 30,
-    height: 40,
-    backgroundColor: '#16132B',
-    borderTopLeftRadius: 8,
+  logoImage: {
+    width: 110,
+    height: 110,
+    borderRadius: 24,
   },
   brandText: {
     fontSize: 28,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -27,7 +27,7 @@ type RouteType = RouteProp<RootStackParamList, 'ToolDetail'>;
 const ToolDetailScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteType>();
-  const { toolSlug } = route.params;
+  const { toolSlug, prefillInputs } = route.params;
   const { tools, generateContent, isGenerating } = useToolsStore();
   const { profile } = useAuthStore();
 
@@ -36,6 +36,8 @@ const ToolDetailScreen = () => {
   const [selectedTone, setSelectedTone] = useState('professional');
   const [selectedLanguage, setSelectedLanguage] = useState('English');
   const [outputCount, setOutputCount] = useState(3);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const tones = ['Professional', 'Casual', 'Friendly', 'Persuasive', 'Formal', 'Creative'];
   const languages = ['English', 'Spanish', 'French', 'German', 'Hindi', 'Chinese', 'Japanese'];
@@ -44,10 +46,10 @@ const ToolDetailScreen = () => {
     const foundTool = tools.find(t => t.slug === toolSlug);
     if (foundTool) {
       setTool(foundTool);
-      // Initialize input values
+      // Initialize input values (prefill if coming from regenerate)
       const initialValues: Record<string, string> = {};
       foundTool.inputs.forEach(input => {
-        initialValues[input.name] = '';
+        initialValues[input.name] = prefillInputs?.[input.name] || '';
       });
       setInputValues(initialValues);
     }
@@ -69,13 +71,13 @@ const ToolDetailScreen = () => {
   };
 
   const handleGenerate = async () => {
-    if (!validateInputs() || !tool) return;
+    if (!validateInputs() || !tool || isGenerating) return;
 
     // Check if user has credits (for free users)
     if (profile?.subscription === 'free' && (profile?.credits || 0) <= 0) {
       Alert.alert(
         'No Credits',
-        'You have no credits remaining. Upgrade to Pro for unlimited generations.',
+        'You have no credits remaining. Upgrade your plan for more AI generations.',
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Upgrade', onPress: () => navigation.navigate('Subscription') },
@@ -83,6 +85,12 @@ const ToolDetailScreen = () => {
       );
       return;
     }
+
+    // Start elapsed timer
+    setElapsedSeconds(0);
+    timerRef.current = setInterval(() => {
+      setElapsedSeconds(s => s + 1);
+    }, 1000);
 
     try {
       const result = await generateContent(tool.$id, {
@@ -95,9 +103,15 @@ const ToolDetailScreen = () => {
       navigation.navigate('ToolResult', {
         toolSlug: tool.slug,
         result,
+        inputs: inputValues,
       });
     } catch (error: any) {
       Alert.alert('Generation Failed', error.message || 'Please try again');
+    } finally {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     }
   };
 
@@ -201,9 +215,9 @@ const ToolDetailScreen = () => {
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
               <Feather name="arrow-left" size={24} color={Colors.white} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.favoriteButton}>
+            <View style={styles.favoriteButton}>
               <Feather name="heart" size={24} color={Colors.white} />
-            </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.toolInfo}>
@@ -362,7 +376,9 @@ const ToolDetailScreen = () => {
               {isGenerating ? (
                 <View style={styles.generatingContent}>
                   <ActivityIndicator color={Colors.white} />
-                  <Text style={styles.generateText}>Generating...</Text>
+                  <Text style={styles.generateText}>
+                    {elapsedSeconds >= 5 ? `Still generating... ${elapsedSeconds}s` : `Generating... ${elapsedSeconds}s`}
+                  </Text>
                 </View>
               ) : (
                 <View style={styles.generateContent}>

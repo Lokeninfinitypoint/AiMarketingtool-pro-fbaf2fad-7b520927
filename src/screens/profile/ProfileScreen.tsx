@@ -8,6 +8,7 @@ import {
   Image,
   Alert,
   Dimensions,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -123,9 +124,9 @@ const ProfileScreen = () => {
                   </Text>
                 </LinearGradient>
               )}
-              <TouchableOpacity style={styles.editAvatarBtn}>
+              <View style={styles.editAvatarBtn}>
                 <Feather name="camera" size={14} color={Colors.white} />
-              </TouchableOpacity>
+              </View>
             </View>
 
             <Text style={styles.userName}>{user?.name || 'User'}</Text>
@@ -187,7 +188,7 @@ const ProfileScreen = () => {
                 <View style={styles.upgradeInfo}>
                   <Text style={styles.upgradeTitle}>Upgrade to Pro</Text>
                   <Text style={styles.upgradeSubtitle}>
-                    Unlimited generations & premium features
+                    Up to 1,500 AI generations/month
                   </Text>
                 </View>
               </View>
@@ -240,13 +241,13 @@ const ProfileScreen = () => {
 
         {/* App Info */}
         <View style={styles.appInfo}>
-          <Text style={styles.appVersion}>MarketingTool v1.0.0</Text>
+          <Text style={styles.appVersion}>MarketingTool v1.1.0</Text>
           <View style={styles.appLinks}>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => Linking.openURL('https://app.marketingtool.pro/dashboard/policy')}>
               <Text style={styles.appLink}>Terms</Text>
             </TouchableOpacity>
             <Text style={styles.appLinkDivider}>•</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => Linking.openURL('https://app.marketingtool.pro/dashboard/policy')}>
               <Text style={styles.appLink}>Privacy</Text>
             </TouchableOpacity>
           </View>

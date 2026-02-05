@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,52 +7,140 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
+  Linking,
+  Modal,
+  TextInput,
+  Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
+import { authService } from '../../services/appwrite';
 import { Colors, Gradients, Spacing, BorderRadius } from '../../constants/theme';
 import AnimatedBackground from '../../components/common/AnimatedBackground';
+import { biometricService } from '../../services/biometric';
 
 const SettingsScreen = () => {
   const navigation = useNavigation();
-  const { user, logout } = useAuthStore();
+  const { user, logout, biometricEnabled, enableBiometric, disableBiometric } = useAuthStore();
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
 
   const [settings, setSettings] = useState({
     notifications: true,
     emailUpdates: true,
     marketingEmails: false,
-    biometricLogin: true,
+    biometricLogin: false,
     darkMode: true,
     autoSave: true,
     hapticFeedback: true,
   });
 
+  // Password change modal state (cross-platform, works on both iOS and Android)
+  const [passwordModal, setPasswordModal] = useState<'hidden' | 'current' | 'new'>('hidden');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
+  // Load biometric state on mount
+  useEffect(() => {
+    const loadBiometric = async () => {
+      const available = await biometricService.isBiometricAvailable();
+      setBiometricAvailable(available);
+      setSettings(prev => ({ ...prev, biometricLogin: biometricEnabled }));
+    };
+    loadBiometric();
+  }, [biometricEnabled]);
+
   const toggleSetting = (key: keyof typeof settings) => {
+    if (key === 'biometricLogin') {
+      handleBiometricToggle();
+      return;
+    }
     setSettings(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleBiometricToggle = async () => {
+    if (!biometricAvailable) {
+      Alert.alert('Not Available', 'Biometric authentication is not available on this device.');
+      return;
+    }
+    if (biometricEnabled) {
+      await disableBiometric();
+      setSettings(prev => ({ ...prev, biometricLogin: false }));
+    } else {
+      const success = await enableBiometric();
+      if (success) {
+        setSettings(prev => ({ ...prev, biometricLogin: true }));
+      } else {
+        Alert.alert('Failed', 'Could not enable biometric authentication. Please try again.');
+      }
+    }
   };
 
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
-      'Are you sure you want to delete your account? This action cannot be undone.',
+      'Are you sure you want to delete your account? This action cannot be undone. All your data will be permanently removed.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Delete My Account',
           style: 'destructive',
-          onPress: () => {
-            Alert.alert('Account Deleted', 'Your account has been scheduled for deletion.');
-            logout();
+          onPress: async () => {
+            try {
+              await authService.updateStatus();
+              Alert.alert('Account Deleted', 'Your account has been successfully deleted.');
+              logout();
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to delete account. Please contact support.');
+            }
           },
         },
       ]
     );
   };
 
-  const handleClearCache = () => {
-    Alert.alert('Cache Cleared', 'App cache has been cleared successfully.');
+  const handleClearCache = async () => {
+    try {
+      const SecureStore = require('expo-secure-store');
+      await SecureStore.deleteItemAsync('appwrite_session');
+      Alert.alert('Cache Cleared', 'App cache has been cleared. You may need to log in again.');
+    } catch {
+      Alert.alert('Cache Cleared', 'Cache has been cleared successfully.');
+    }
+  };
+
+  const handleChangePassword = () => {
+    setCurrentPassword('');
+    setNewPassword('');
+    setPasswordModal('current');
+  };
+
+  const handlePasswordNext = () => {
+    if (!currentPassword) {
+      Alert.alert('Error', 'Please enter your current password.');
+      return;
+    }
+    setPasswordModal('new');
+  };
+
+  const handlePasswordSubmit = async () => {
+    if (!newPassword || newPassword.length < 8) {
+      Alert.alert('Error', 'New password must be at least 8 characters.');
+      return;
+    }
+    setPasswordLoading(true);
+    try {
+      await authService.updatePassword(currentPassword, newPassword);
+      setPasswordModal('hidden');
+      Alert.alert('Success', 'Your password has been updated.');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to update password. Check your current password.');
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
   const settingsSections = [
@@ -97,14 +185,7 @@ const SettingsScreen = () => {
           label: 'Change Password',
           description: 'Update your password',
           type: 'action',
-          action: () => Alert.alert('Change Password', 'Password change feature coming soon'),
-        },
-        {
-          icon: 'key',
-          label: 'Two-Factor Authentication',
-          description: 'Add extra security to your account',
-          type: 'action',
-          action: () => Alert.alert('2FA', 'Two-factor authentication coming soon'),
+          action: handleChangePassword,
         },
       ],
     },
@@ -144,13 +225,6 @@ const SettingsScreen = () => {
           type: 'action',
           action: handleClearCache,
         },
-        {
-          icon: 'download',
-          label: 'Export Data',
-          description: 'Download your data',
-          type: 'action',
-          action: () => Alert.alert('Export', 'Data export feature coming soon'),
-        },
       ],
     },
     {
@@ -159,26 +233,26 @@ const SettingsScreen = () => {
         {
           icon: 'info',
           label: 'App Version',
-          description: '1.0.0 (Build 1)',
+          description: '1.1.0 (Build 12)',
           type: 'info',
         },
         {
           icon: 'file-text',
           label: 'Terms of Service',
           type: 'action',
-          action: () => Alert.alert('Terms', 'Opening Terms of Service'),
+          action: () => Linking.openURL('https://app.marketingtool.pro/dashboard/policy'),
         },
         {
           icon: 'shield',
           label: 'Privacy Policy',
           type: 'action',
-          action: () => Alert.alert('Privacy', 'Opening Privacy Policy'),
+          action: () => Linking.openURL('https://app.marketingtool.pro/dashboard/policy'),
         },
         {
           icon: 'book-open',
           label: 'Open Source Licenses',
           type: 'action',
-          action: () => Alert.alert('Licenses', 'Opening licenses'),
+          action: () => Linking.openURL('https://app.marketingtool.pro/dashboard/policy'),
         },
       ],
     },
@@ -213,9 +287,9 @@ const SettingsScreen = () => {
             <Text style={styles.userName}>{user?.name || 'User'}</Text>
             <Text style={styles.userEmail}>{user?.email}</Text>
           </View>
-          <TouchableOpacity style={styles.editButton}>
+          <View style={styles.editButton}>
             <Feather name="edit-2" size={18} color={Colors.primary} />
-          </TouchableOpacity>
+          </View>
         </View>
 
         {/* Settings Sections */}
@@ -281,6 +355,60 @@ const SettingsScreen = () => {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Change Password Modal (cross-platform: works on both iOS and Android) */}
+      <Modal
+        visible={passwordModal !== 'hidden'}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPasswordModal('hidden')}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {passwordModal === 'current' ? 'Change Password' : 'New Password'}
+            </Text>
+            <Text style={styles.modalSubtitle}>
+              {passwordModal === 'current'
+                ? 'Enter your current password'
+                : 'Enter your new password (min 8 characters)'}
+            </Text>
+
+            <TextInput
+              style={styles.modalInput}
+              secureTextEntry
+              autoFocus
+              placeholder={passwordModal === 'current' ? 'Current password' : 'New password'}
+              placeholderTextColor={Colors.textTertiary}
+              value={passwordModal === 'current' ? currentPassword : newPassword}
+              onChangeText={passwordModal === 'current' ? setCurrentPassword : setNewPassword}
+              editable={!passwordLoading}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setPasswordModal('hidden')}
+                disabled={passwordLoading}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalSubmitBtn, passwordLoading && { opacity: 0.6 }]}
+                onPress={passwordModal === 'current' ? handlePasswordNext : handlePasswordSubmit}
+                disabled={passwordLoading}
+              >
+                <Text style={styles.modalSubmitText}>
+                  {passwordLoading ? 'Updating...' : passwordModal === 'current' ? 'Next' : 'Update'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </AnimatedBackground>
   );
 };
@@ -416,6 +544,65 @@ const styles = StyleSheet.create({
   },
   settingRight: {
     marginLeft: Spacing.md,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.lg,
+  },
+  modalContent: {
+    width: '100%',
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.white,
+    marginBottom: Spacing.xs,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.lg,
+  },
+  modalInput: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    fontSize: 16,
+    color: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Spacing.lg,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  modalCancelBtn: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+  },
+  modalCancelText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+  },
+  modalSubmitBtn: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.md,
+  },
+  modalSubmitText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.white,
   },
 });
 

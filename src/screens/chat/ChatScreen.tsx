@@ -18,6 +18,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { Colors, Gradients, Spacing, BorderRadius } from '../../constants/theme';
+import { useAuthStore } from '../../store/authStore';
+import { functions, account } from '../../services/appwrite';
+import { ExecutionMethod } from 'react-native-appwrite';
 
 const { width } = Dimensions.get('window');
 
@@ -30,6 +33,8 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  isError?: boolean;
+  retryMessage?: string;
 }
 
 interface SuggestedPrompt {
@@ -66,11 +71,13 @@ const AnimatedRipple = () => {
       );
     };
 
-    Animated.parallel([
+    const anim = Animated.parallel([
       createRippleAnimation(ripple1, 0),
       createRippleAnimation(ripple2, 1000),
       createRippleAnimation(ripple3, 2000),
-    ]).start();
+    ]);
+    anim.start();
+    return () => anim.stop();
   }, []);
 
   const createRippleStyle = (anim: Animated.Value) => ({
@@ -110,7 +117,7 @@ const BotIcon = ({ size = 80, animated = true }: { size?: number; animated?: boo
 
   useEffect(() => {
     if (animated) {
-      Animated.loop(
+      const anim = Animated.loop(
         Animated.sequence([
           Animated.timing(bounceAnim, {
             toValue: -8,
@@ -125,7 +132,9 @@ const BotIcon = ({ size = 80, animated = true }: { size?: number; animated?: boo
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
+      anim.start();
+      return () => anim.stop();
     }
   }, [animated]);
 
@@ -157,6 +166,7 @@ interface ChatCapability {
 
 const ChatScreen = () => {
   const navigation = useNavigation();
+  const { profile } = useAuthStore();
   const scrollViewRef = useRef<ScrollView>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -250,7 +260,7 @@ const ChatScreen = () => {
 
   useEffect(() => {
     if (isTyping) {
-      Animated.loop(
+      const anim = Animated.loop(
         Animated.sequence([
           Animated.timing(typingAnim, {
             toValue: 1,
@@ -263,7 +273,9 @@ const ChatScreen = () => {
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
+      anim.start();
+      return () => anim.stop();
     } else {
       typingAnim.setValue(0);
     }
@@ -271,7 +283,7 @@ const ChatScreen = () => {
 
   // Pulse animation for input border
   useEffect(() => {
-    Animated.loop(
+    const anim = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1.02,
@@ -286,7 +298,9 @@ const ChatScreen = () => {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    anim.start();
+    return () => anim.stop();
   }, []);
 
   const scrollToBottom = () => {
@@ -294,6 +308,10 @@ const ChatScreen = () => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, 100);
   };
+
+  // Track consecutive errors for smart recovery
+  const [consecutiveErrors, setConsecutiveErrors] = useState(0);
+  const lastFailedMessage = useRef<string | null>(null);
 
   const handleSend = async (text?: string) => {
     const messageText = text || inputText.trim();
@@ -312,7 +330,6 @@ const ChatScreen = () => {
     scrollToBottom();
 
     try {
-      // Call REAL Windmill AI
       const response = await callWindmillChat(messageText, messages);
 
       const assistantMessage: Message = {
@@ -322,32 +339,52 @@ const ChatScreen = () => {
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, assistantMessage]);
+      setConsecutiveErrors(0);
+      lastFailedMessage.current = null;
     } catch (error) {
-      console.error('[Chat] AI Error:', error);
-      const errorMessage: Message = {
+      const errorCount = consecutiveErrors + 1;
+      setConsecutiveErrors(errorCount);
+      lastFailedMessage.current = messageText;
+
+      const errorContent = errorCount >= 3
+        ? 'Connection issue detected. Please check your internet and try again.'
+        : 'Sorry, I encountered an error. Tap "Retry" to try again.';
+
+      const errorMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
+        content: errorContent,
         timestamp: new Date(),
+        isError: true,
+        retryMessage: messageText,
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, errorMsg]);
     } finally {
       setIsTyping(false);
       scrollToBottom();
     }
   };
 
-  // REAL Windmill AI Chat Function
-  const callWindmillChat = async (userMessage: string, history: Message[]): Promise<string> => {
-    const WINDMILL_BASE = 'https://wm.marketingtool.pro';
-    const WINDMILL_WORKSPACE = 'marketingtool-pro';
-    const WINDMILL_TOKEN = 'wm_token_marketingtool_2024';
+  // Retry a failed message
+  const handleRetry = (retryText: string) => {
+    // Remove the error message before retrying
+    setMessages(prev => prev.filter(m => !(m.isError && m.retryMessage === retryText)));
+    handleSend(retryText);
+  };
 
-    // Build conversation history for context
-    const conversationHistory = history.slice(-10).map(m => ({
-      role: m.role,
-      content: m.content,
-    }));
+  // AI Chat via Appwrite Functions (server-side proxy to Windmill)
+  // The Windmill token is stored server-side in the Appwrite Function environment,
+  // never exposed to the client app binary.
+  const callWindmillChat = async (userMessage: string, history: Message[], retryCount = 0): Promise<string> => {
+    // On retry, reduce history to avoid payload size issues
+    const historyLimit = retryCount > 0 ? 4 : 10;
+    const conversationHistory = history
+      .filter(m => !m.isError)
+      .slice(-historyLimit)
+      .map(m => ({
+        role: m.role,
+        content: m.content,
+      }));
 
     const systemPrompt = `You are MarketBot, an expert AI marketing assistant for MarketingTool.pro.
 You help users with:
@@ -361,31 +398,51 @@ You help users with:
 Be helpful, specific, and provide actionable advice. Use formatting with bullet points and sections when appropriate.`;
 
     try {
-      const response = await fetch(
-        `${WINDMILL_BASE}/api/w/${WINDMILL_WORKSPACE}/jobs/run_wait_result/p/f/mobile/chat_ai`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${WINDMILL_TOKEN}`,
-          },
-          body: JSON.stringify({
-            system_prompt: systemPrompt,
-            user_message: userMessage,
-            conversation_history: conversationHistory,
-          }),
+      // Validate session is still active before making the call
+      if (retryCount === 0) {
+        try {
+          await account.get();
+        } catch (sessionError) {
+          console.log('Session validation failed - attempting chat anyway');
         }
-      );
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
       }
 
-      const result = await response.json();
-      return result.response || result.content || result;
+      const execution = await functions.createExecution(
+        'chat-ai',
+        JSON.stringify({
+          system_prompt: systemPrompt,
+          user_message: userMessage,
+          conversation_history: conversationHistory,
+        }),
+        false,
+        '/',
+        ExecutionMethod.POST,
+        { 'Content-Type': 'application/json' }
+      );
+
+      // Check execution status before parsing
+      if (execution.status === 'failed' || execution.responseStatusCode >= 400) {
+        throw new Error(`Function failed with status: ${execution.responseStatusCode}`);
+      }
+
+      if (!execution.responseBody || execution.responseBody.trim() === '') {
+        throw new Error('Empty response from AI service');
+      }
+
+      const result = JSON.parse(execution.responseBody);
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      return result.response || result.content || 'I could not generate a response.';
     } catch (error) {
-      console.error('[Chat] Windmill error:', error);
-      // Fallback to helpful response
+      // Retry once with reduced history (handles payload size / timeout issues)
+      if (retryCount < 1) {
+        console.log('Chat call failed, retrying with reduced history...');
+        return callWindmillChat(userMessage, history, retryCount + 1);
+      }
+      // Second retry failed — use fallback
       return generateFallbackResponse(userMessage);
     }
   };
@@ -437,11 +494,21 @@ Be helpful, specific, and provide actionable advice. Use formatting with bullet 
           style={[
             styles.messageBubble,
             isUser ? styles.userBubble : styles.assistantBubble,
+            message.isError && styles.errorBubble,
           ]}
         >
           <Text style={[styles.messageText, isUser && styles.userMessageText]}>
             {message.content}
           </Text>
+          {message.isError && message.retryMessage && (
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => handleRetry(message.retryMessage!)}
+            >
+              <Feather name="refresh-cw" size={14} color={Colors.white} />
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          )}
           <Text style={styles.timestamp}>
             {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </Text>
@@ -472,7 +539,7 @@ Be helpful, specific, and provide actionable advice. Use formatting with bullet 
           )}
           <View style={styles.creditsContainer}>
             <Feather name="zap" size={14} color={Colors.gold} />
-            <Text style={styles.creditsText}>400</Text>
+            <Text style={styles.creditsText}>{(profile?.subscription || 'free').charAt(0).toUpperCase() + (profile?.subscription || 'free').slice(1)}</Text>
           </View>
         </View>
       </View>
@@ -924,6 +991,27 @@ const styles = StyleSheet.create({
   assistantBubble: {
     backgroundColor: Colors.card,
     borderBottomLeftRadius: 4,
+  },
+  errorBubble: {
+    backgroundColor: '#3D1F1F',
+    borderWidth: 1,
+    borderColor: '#FF6B6B40',
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.secondary,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginTop: 8,
+    gap: 6,
+  },
+  retryButtonText: {
+    color: Colors.white,
+    fontSize: 13,
+    fontWeight: '600',
   },
   messageText: {
     fontSize: 16,

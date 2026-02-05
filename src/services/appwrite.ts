@@ -87,68 +87,47 @@ export const authService = {
   // Login with Google using Appwrite SDK OAuth
   async loginWithGoogle(): Promise<Models.Session | null> {
     try {
-      console.log('[OAuth] Starting Google OAuth via Appwrite SDK...');
-
-      // Use auth.marketingtool.pro for phone app OAuth (separate from web app)
       const successUrl = 'https://auth.marketingtool.pro/oauth/success';
       const failureUrl = 'https://auth.marketingtool.pro/oauth/failure';
 
-      // Use SDK's createOAuth2Token method for mobile - returns userId & secret in URL
       const oauthUrl = account.createOAuth2Token(
         OAuthProvider.Google,
         successUrl,
         failureUrl
       );
 
-      console.log('[OAuth] Opening URL:', oauthUrl?.toString());
-
       // Nginx redirects auth.marketingtool.pro/oauth/success → marketingtool://oauth/success
       const result = await WebBrowser.openAuthSessionAsync(oauthUrl?.toString() || '', 'marketingtool://');
 
-      console.log('[OAuth] Browser result type:', result.type);
-
       if (result.type === 'success' && result.url) {
-        console.log('[OAuth] Callback URL:', result.url);
-
-        // Check if it's a success callback
         if (result.url.includes('oauth/success') || result.url.includes('secret=')) {
-          // Parse the URL for session tokens
           const urlParams = new URL(result.url);
           const secret = urlParams.searchParams.get('secret');
           const userId = urlParams.searchParams.get('userId');
 
           if (secret && userId) {
-            console.log('[OAuth] Creating session with token...');
             const session = await account.createSession(userId, secret);
             await saveSession(session.$id);
             return session;
           }
         }
 
-        // Try to get existing session (OAuth might have set cookies)
         try {
-          console.log('[OAuth] Checking for session...');
           const user = await account.get();
           if (user) {
             const sessions = await account.listSessions();
             if (sessions.sessions.length > 0) {
               await saveSession(sessions.sessions[0].$id);
-              console.log('[OAuth] Session found for:', user.email);
               return sessions.sessions[0];
             }
           }
         } catch (e) {
-          console.log('[OAuth] No existing session');
+          // No existing session found
         }
-      }
-
-      if (result.type === 'cancel') {
-        console.log('[OAuth] Cancelled by user');
       }
 
       return null;
     } catch (error: any) {
-      console.error('[OAuth] Google error:', error?.message || error);
       throw error;
     }
   },
@@ -156,19 +135,15 @@ export const authService = {
   // Login with Apple using Appwrite SDK OAuth
   async loginWithApple(): Promise<Models.Session | null> {
     try {
-      console.log('[OAuth] Starting Apple OAuth...');
-
       const successUrl = 'https://auth.marketingtool.pro/oauth/success';
       const failureUrl = 'https://auth.marketingtool.pro/oauth/failure';
 
-      // Use SDK's createOAuth2Token method for mobile - returns userId & secret in URL
       const oauthUrl = account.createOAuth2Token(
         OAuthProvider.Apple,
         successUrl,
         failureUrl
       );
 
-      // Nginx redirects auth.marketingtool.pro/oauth/success → marketingtool://oauth/success
       const result = await WebBrowser.openAuthSessionAsync(oauthUrl?.toString() || '', 'marketingtool://');
 
       if (result.type === 'success' && result.url) {
@@ -194,13 +169,12 @@ export const authService = {
             }
           }
         } catch (e) {
-          console.log('[OAuth] No Apple session');
+          // No existing session found
         }
       }
 
       return null;
     } catch (error: any) {
-      console.error('[OAuth] Apple error:', error?.message || error);
       throw error;
     }
   },
@@ -208,19 +182,15 @@ export const authService = {
   // Login with Facebook using Appwrite SDK OAuth
   async loginWithFacebook(): Promise<Models.Session | null> {
     try {
-      console.log('[OAuth] Starting Facebook OAuth...');
-
       const successUrl = 'https://auth.marketingtool.pro/oauth/success';
       const failureUrl = 'https://auth.marketingtool.pro/oauth/failure';
 
-      // Use SDK's createOAuth2Token method for mobile - returns userId & secret in URL
       const oauthUrl = account.createOAuth2Token(
         OAuthProvider.Facebook,
         successUrl,
         failureUrl
       );
 
-      // Nginx redirects auth.marketingtool.pro/oauth/success → marketingtool://oauth/success
       const result = await WebBrowser.openAuthSessionAsync(oauthUrl?.toString() || '', 'marketingtool://');
 
       if (result.type === 'success' && result.url) {
@@ -246,13 +216,33 @@ export const authService = {
             }
           }
         } catch (e) {
-          console.log('[OAuth] No Facebook session');
+          // No existing session found
         }
       }
 
       return null;
     } catch (error: any) {
-      console.error('[OAuth] Facebook error:', error?.message || error);
+      throw error;
+    }
+  },
+
+  // Send Phone OTP
+  async sendPhoneOTP(phone: string): Promise<Models.Token> {
+    try {
+      const token = await account.createPhoneToken(ID.unique(), phone);
+      return token;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Verify Phone OTP
+  async verifyPhoneOTP(userId: string, otp: string): Promise<Models.Session> {
+    try {
+      const session = await account.createSession(userId, otp);
+      await saveSession(session.$id);
+      return session;
+    } catch (error) {
       throw error;
     }
   },
@@ -292,6 +282,17 @@ export const authService = {
   async updatePassword(oldPassword: string, newPassword: string): Promise<Models.User<Models.Preferences>> {
     try {
       return await account.updatePassword(newPassword, oldPassword);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Delete Account (sets status to blocked/disabled)
+  async updateStatus(): Promise<Models.User<Models.Preferences>> {
+    try {
+      const result = await account.updateStatus();
+      await this.logout();
+      return result;
     } catch (error) {
       throw error;
     }

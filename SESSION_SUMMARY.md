@@ -21,7 +21,7 @@
 **AI Backend:** Windmill
 - URL: `https://wm.marketingtool.pro`
 - Workspace: `marketingtool-pro`
-- Token: `wm_token_marketingtool_2024`
+- Token: `REDACTED_USE_APPWRITE_FUNCTION`
 
 **Expo Access Token:** `FeMBZxek4_UvIVq9PE0m4Y-cPynHTWtLZmiZshBO`
 - Used for: EAS builds, push notifications
@@ -136,7 +136,7 @@ const result = await WebBrowser.openAuthSessionAsync(oauthUrl, 'marketingtool://
 ```typescript
 const WINDMILL_BASE = 'https://wm.marketingtool.pro';
 const WINDMILL_WORKSPACE = 'marketingtool-pro';
-const WINDMILL_TOKEN = 'wm_token_marketingtool_2024';
+const WINDMILL_TOKEN = 'REDACTED_USE_APPWRITE_FUNCTION';
 
 fetch(`${WINDMILL_BASE}/api/w/${WINDMILL_WORKSPACE}/jobs/run_wait_result/p/f/mobile/chat_ai`, {
   headers: { 'Authorization': `Bearer ${WINDMILL_TOKEN}` }
@@ -329,7 +329,7 @@ curl -I "https://api.marketingtool.pro/v1/account/tokens/oauth2/google?..."
 **Windmill Configuration:**
 - URL: https://wm.marketingtool.pro
 - Workspace: marketingtool-pro
-- Token: wm_token_marketingtool_2024
+- Token: REDACTED_USE_APPWRITE_FUNCTION
 - Anthropic Resource: u/admin/dauntless_anthropic
 
 ### DASHBOARD ANIMATIONS ADDED ✅
@@ -376,16 +376,16 @@ SESSION_SUMMARY.md - Updated
 ```bash
 # List scripts
 curl -s "https://wm.marketingtool.pro/api/w/marketingtool-pro/scripts/list?path_start=f/mobile" \
-  -H "Authorization: Bearer wm_token_marketingtool_2024"
+  -H "Authorization: Bearer REDACTED_USE_APPWRITE_FUNCTION"
 
 # Test AI generation
 curl -X POST "https://wm.marketingtool.pro/api/w/marketingtool-pro/jobs/run_wait_result/p/f/mobile/ai_generate" \
-  -H "Authorization: Bearer wm_token_marketingtool_2024" \
+  -H "Authorization: Bearer REDACTED_USE_APPWRITE_FUNCTION" \
   -d '{"tool_slug": "...", "tool_name": "...", ...}'
 
 # Test chat
 curl -X POST "https://wm.marketingtool.pro/api/w/marketingtool-pro/jobs/run_wait_result/p/f/mobile/chat_ai" \
-  -H "Authorization: Bearer wm_token_marketingtool_2024" \
+  -H "Authorization: Bearer REDACTED_USE_APPWRITE_FUNCTION" \
   -d '{"messages": [{"role": "user", "content": "..."}]}'
 ```
 
@@ -540,7 +540,7 @@ DATABASE_ID=marketingtool_db
 # Windmill
 WINDMILL_BASE=https://wm.marketingtool.pro
 WINDMILL_WORKSPACE=marketingtool-pro
-WINDMILL_TOKEN=wm_token_marketingtool_2024
+WINDMILL_TOKEN=REDACTED_USE_APPWRITE_FUNCTION
 
 # Expo
 EXPO_TOKEN=FeMBZxek4_UvIVq9PE0m4Y-cPynHTWtLZmiZshBO

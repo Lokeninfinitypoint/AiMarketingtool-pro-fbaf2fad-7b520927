@@ -3,6 +3,7 @@
 // NO direct Windmill calls — clients never talk to Windmill directly
 
 import { functions, account } from './appwrite';
+import { ExecutionMethod } from 'react-native-appwrite';
 
 const TOOL_EXECUTOR_FUNCTION_ID = 'tool-executor';
 const NEXTJS_API_BASE = 'https://app.marketingtool.pro';
@@ -35,12 +36,13 @@ export async function generateAIContent(request: AIGenerationRequest): Promise<A
     .map(([key, value]) => `${key}: ${value}`)
     .join('\n');
 
-  const userPrompt = `${toolName}\n\n${inputsText}\n\nTone: ${tone || 'professional'}\nLanguage: ${language || 'English'}`;
+  const separatorInstruction = outputCount > 1
+    ? `\n\nIMPORTANT: Generate exactly ${outputCount} distinct variations. Separate each variation with the exact line: ---VARIATION---`
+    : '';
+  const userPrompt = `${toolName}\n\n${inputsText}\n\nTone: ${tone || 'professional'}\nLanguage: ${language || 'English'}${separatorInstruction}`;
 
   // Primary: Appwrite Function (tool-executor → Windmill → Claude)
   try {
-    console.log(`[AI] Executing tool-executor for: ${toolSlug}`);
-
     const execution = await functions.createExecution(
       TOOL_EXECUTOR_FUNCTION_ID,
       JSON.stringify({
@@ -54,25 +56,21 @@ export async function generateAIContent(request: AIGenerationRequest): Promise<A
       }),
       false,  // async = false (wait for result)
       '/',    // path
-      'POST', // method
+      ExecutionMethod.POST, // method
     );
 
     if (execution.responseStatusCode >= 200 && execution.responseStatusCode < 300) {
       const result = parseExecutionResponse(execution.responseBody, outputCount);
       if (result.success && result.outputs.length > 0) {
-        console.log(`[AI] Function success: ${result.outputs.length} outputs`);
         return result;
       }
     }
-
-    console.log(`[AI] Function returned status ${execution.responseStatusCode}, trying fallback`);
   } catch (error: any) {
-    console.log(`[AI] Function error: ${error.message}, trying fallback`);
+    // Primary path failed, trying fallback
   }
 
   // Fallback: Call Next.js API directly (middleware supports Bearer auth)
   try {
-    console.log(`[AI] Fallback: calling Next.js API for ${toolSlug}`);
 
     const jwt = await account.createJWT();
 
@@ -92,7 +90,6 @@ export async function generateAIContent(request: AIGenerationRequest): Promise<A
     if (response.ok) {
       const data = await response.json();
       if (data.success && data.output) {
-        console.log(`[AI] API fallback success`);
         return {
           outputs: splitOutputs(data.output, outputCount),
           success: true,
@@ -127,7 +124,7 @@ export async function generateAIContent(request: AIGenerationRequest): Promise<A
       }
     }
   } catch (fallbackError: any) {
-    console.error('[AI] Fallback also failed:', fallbackError.message);
+    // Both primary and fallback paths failed
   }
 
   return {
@@ -197,7 +194,7 @@ function parseExecutionResponse(responseBody: string, outputCount: number): AIGe
 
 // Split AI response into separate outputs
 function splitOutputs(content: string, count: number): string[] {
-  // Try custom separator first
+  // Try custom separator first (highest priority - we instructed Claude to use this)
   if (content.includes('---VARIATION---')) {
     const parts = content.split('---VARIATION---').filter(p => p.trim().length > 20);
     if (parts.length >= 1) {
@@ -205,8 +202,15 @@ function splitOutputs(content: string, count: number): string[] {
     }
   }
 
-  // Try other common separators
-  const separators = ['---', '***', '###', '\n\nVariation', '\n\nOption'];
+  // Try numbered heading patterns: "**Variation 1:**", "## Option 1", "1.", "Option 1:"
+  const headingRegex = /(?:^|\n)(?:\*{0,2}(?:Variation|Option|Version)\s*\d+\*{0,2}\s*[:\-]|#{1,3}\s*(?:Variation|Option|Version)\s*\d+|\d+\.\s)/gi;
+  const headingParts = content.split(headingRegex).filter(p => p.trim().length > 30);
+  if (headingParts.length >= count) {
+    return headingParts.slice(0, count).map(p => p.trim());
+  }
+
+  // Try other common separators (only if they produce enough parts)
+  const separators = ['---', '***'];
   for (const sep of separators) {
     const parts = content.split(sep).filter(p => p.trim().length > 50);
     if (parts.length >= count) {
@@ -214,11 +218,12 @@ function splitOutputs(content: string, count: number): string[] {
     }
   }
 
-  // Try numbered variations
-  const numberedRegex = /(?:^|\n)(?:\d+\.|Option \d+|Variation \d+)[:\s]/gi;
-  const parts = content.split(numberedRegex).filter(p => p.trim().length > 50);
-  if (parts.length >= count) {
-    return parts.slice(0, count).map(p => p.trim());
+  // Try double newline split for shorter content
+  if (count > 1) {
+    const paragraphs = content.split(/\n\n+/).filter(p => p.trim().length > 30);
+    if (paragraphs.length >= count) {
+      return paragraphs.slice(0, count).map(p => p.trim());
+    }
   }
 
   // Return as single output
